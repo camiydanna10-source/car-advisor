@@ -79,7 +79,7 @@ export default function RegisterScreen() {
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
           <Ionicons name="checkmark-circle" size={80} color="#37d1ba" />
           <Text style={{ fontSize: 24, fontWeight: 'bold', marginTop: 16, color: '#fefefe' }}>
-            ¡Registro Exitoso! 🎉
+            ¡Registro Exitoso! 
           </Text>
           <Text style={{ fontSize: 16, color: '#a4a4a4', textAlign: 'center', marginTop: 8, marginBottom: 24 }}>
             Tu cuenta ha sido creada correctamente en CarAdvisor.

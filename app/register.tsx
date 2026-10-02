@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { User, Mail, Lock, ArrowRight, ShieldCheck, CheckCircle2, Eye, EyeOff } from 'lucide-react-native';
+import { User, Mail, Lock, ArrowRight, ShieldCheck, Eye, EyeOff } from 'lucide-react-native';
 import { COLORS } from '../constants/theme';
 import { registerUser } from '../services/authService';
 import { GlassCard } from '../components/GlassCard';
@@ -26,7 +26,6 @@ export default function RegisterScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
 
   const handleRegister = async () => {
     if (!name.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
@@ -46,32 +45,13 @@ export default function RegisterScreen() {
     setIsLoading(true);
     try {
       await registerUser({ name, email, password });
-      setIsSuccess(true);
+      router.replace({ pathname: '/register-vehicle', params: { name: name.trim() } });
     } catch (err: any) {
       setErrorMsg(err.message || 'Error al registrar usuario');
     } finally {
       setIsLoading(false);
     }
   };
-
-  if (isSuccess) {
-    return (
-      <>
-        <AuthHeader label="Sign Up" showBack={false} />
-        <View style={styles.successContainer}>
-          <CheckCircle2 size={72} color={COLORS.primary} />
-          <Text style={styles.successTitle}>¡Registro Exitoso!</Text>
-          <Text style={styles.successSubtitle}>
-            Tu cuenta ha sido creada correctamente en CarAdvisor.
-          </Text>
-          <TouchableOpacity style={styles.submitBtn} onPress={() => router.replace('/')}>
-            <Text style={styles.submitBtnText}>Ir al Inicio / Iniciar Sesión</Text>
-            <ArrowRight size={18} color={COLORS.onPrimary} />
-          </TouchableOpacity>
-        </View>
-      </>
-    );
-  }
 
   return (
     <>
@@ -209,25 +189,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 24,
     paddingBottom: 40,
-  },
-  successContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-    gap: 8,
-  },
-  successTitle: {
-    color: COLORS.onSurface,
-    fontSize: 24,
-    fontWeight: '700',
-    marginTop: 12,
-  },
-  successSubtitle: {
-    color: COLORS.onSurfaceVariant,
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 16,
   },
   topHeader: {
     marginBottom: 24,

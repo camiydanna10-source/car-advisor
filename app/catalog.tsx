@@ -6,64 +6,13 @@ import { COLORS, TYPE, SPACING } from '../constants/theme';
 import { GlassCard } from '../components/GlassCard';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { AuthHeader } from '../components/AuthHeader';
-
-interface ServiceItem {
-  id: string;
-  category: 'MECANICA' | 'NEUMATICOS' | 'ESTETICA';
-  title: string;
-  description: string;
-  price: number;
-  estimatedTime: string;
-}
-
-const SERVICES: ServiceItem[] = [
-  {
-    id: 's1',
-    category: 'MECANICA',
-    title: 'Cambio de Aceite & Filtros',
-    description: 'Aceite 100% sintético Mobil 1 + filtro de aceite y aire OEM.',
-    price: 180,
-    estimatedTime: '45 min',
-  },
-  {
-    id: 's2',
-    category: 'MECANICA',
-    title: 'Diagnóstico Computarizado OBD-II',
-    description: 'Escaneo completo de códigos de error de motor, transmisión y frenos.',
-    price: 60,
-    estimatedTime: '30 min',
-  },
-  {
-    id: 's3',
-    category: 'NEUMATICOS',
-    title: 'Reparación de Pinchazo & Balanceo',
-    description: 'Desmontaje, parche interior vulcanizado y balanceo dinámico.',
-    price: 35,
-    estimatedTime: '25 min',
-  },
-  {
-    id: 's4',
-    category: 'ESTETICA',
-    title: 'Valet Service & Lavado Premium',
-    description: 'Recogida de auto en domicilio, lavado detallado y entrega con geolocalización.',
-    price: 90,
-    estimatedTime: '2 horas',
-  },
-  {
-    id: 's5',
-    category: 'ESTETICA',
-    title: 'Latonería & Pintura Express',
-    description: 'Reparación de rayones y abolladuras pequeñas en menos de 24h.',
-    price: 250,
-    estimatedTime: '24 horas',
-  },
-];
+import { SERVICES, ServiceCategory } from '../services/serviceCatalog';
 
 // Guest-accessible service catalog + cost estimator — exploration without an
 // account, per the "Visualizador/Invitado" flow from the product docs.
 export default function ServiceCatalogScreen() {
   const router = useRouter();
-  const [activeCategory, setActiveCategory] = useState<'TODOS' | 'MECANICA' | 'NEUMATICOS' | 'ESTETICA'>('TODOS');
+  const [activeCategory, setActiveCategory] = useState<'TODOS' | ServiceCategory>('TODOS');
 
   const filteredServices = activeCategory === 'TODOS'
     ? SERVICES

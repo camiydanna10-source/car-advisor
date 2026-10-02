@@ -1,7 +1,6 @@
-// NOTA: Si usas Expo Web usa 'http://localhost:8080/api/auth'
-// Si usas un emulador Android usa 'http://10.0.2.2:8080/api/auth'
-// Si usas tu celular físico usa la IP de tu PC (ej: 'http://192.168.1.X:8080/api/auth')
-const API_URL = 'http://localhost:8080/api/auth';
+import { API_BASE } from './config';
+
+const API_URL = `${API_BASE}/auth`;
 
 export interface RegisterData {
   name: string;

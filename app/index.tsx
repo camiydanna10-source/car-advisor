@@ -10,7 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Mail, Lock, Key, ArrowRight, ShieldAlert, Fingerprint } from 'lucide-react-native';
+import { Mail, Lock, Key, ArrowRight, ShieldAlert, Fingerprint, Eye, EyeOff } from 'lucide-react-native';
 import { COLORS } from '../constants/theme';
 import { loginUser } from '../services/authService';
 import { GlassCard } from '../components/GlassCard';
@@ -20,6 +20,7 @@ export default function LoginScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -107,8 +108,18 @@ export default function LoginScreen() {
                 placeholderTextColor={COLORS.outline}
                 value={password}
                 onChangeText={setPassword}
-                secureTextEntry
+                secureTextEntry={!showPassword}
               />
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                accessibilityLabel={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+              >
+                {showPassword ? (
+                  <EyeOff size={18} color={COLORS.onSurfaceVariant} />
+                ) : (
+                  <Eye size={18} color={COLORS.onSurfaceVariant} />
+                )}
+              </TouchableOpacity>
             </View>
           </View>
 

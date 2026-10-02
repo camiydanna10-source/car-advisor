@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
@@ -25,165 +24,59 @@ import { COLORS, TYPE, SPACING, RADIUS, SHADOWS } from '../constants/theme';
 import { GlassCard } from '../components/GlassCard';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { AuthHeader } from '../components/AuthHeader';
-
-// Per-vehicle technical specs — the exact part/accessory references a
-// mechanic needs to have ready, keyed by maintenance area so each catalog
-// service can surface the one relevant to it.
-interface VehiclePartSpecs {
-  aceite: { tipo: string; filtro: string; capacidad: string };
-  frenos: { pastillasDelanteras: string; pastillasTraseras: string; discos: string };
-  neumaticos: { medida: string; presion: string };
-  bateria: { tipo: string };
-  distribucion: { tipo: string; proximoCambioKm: number };
-}
-
-interface VehicleData {
-  brand: string;
-  model: string;
-  year: number;
-  motor: string;
-  color: string;
-  mileage: number;
-  owner: string;
-  specs: VehiclePartSpecs;
-}
-
-// Mock DGT-style vehicle registry — simulates a real plate lookup, including
-// the technical specs (filter/pad/tire references) a mechanic would need.
-// Any plate not found here still resolves to a plausible generic result, so
-// the flow always works end-to-end without a real government/parts API.
-const MOCK_VEHICLE_DB: Record<string, VehicleData> = {
-  '9876KMT': {
-    brand: 'Mazda', model: 'CX-5 Touring', year: 2023, motor: 'Híbrido (ECO)',
-    color: 'Gris Titanio', mileage: 48250, owner: 'Carlos Sainz',
-    specs: {
-      aceite: { tipo: '0W-20 Sintético', filtro: 'OEM Mazda PE01-14-302', capacidad: '4.5 L' },
-      frenos: { pastillasDelanteras: 'Akebono ACT-1234', pastillasTraseras: 'Akebono ACT-5678', discos: 'Ventilados 320mm' },
-      neumaticos: { medida: '225/65 R17', presion: '32 PSI' },
-      bateria: { tipo: '12V 70Ah AGM Start-Stop' },
-      distribucion: { tipo: 'Cadena (sin mantenimiento programado)', proximoCambioKm: 0 },
-    },
-  },
-  '1234ABC': {
-    brand: 'Seat', model: 'León FR', year: 2022, motor: 'Gasolina',
-    color: 'Rojo Cristal', mileage: 32100, owner: 'María García',
-    specs: {
-      aceite: { tipo: '5W-40 Sintético', filtro: 'Bosch 0451103316', capacidad: '4.3 L' },
-      frenos: { pastillasDelanteras: 'Brembo P85020', pastillasTraseras: 'Brembo P85021', discos: 'Ventilados 312mm' },
-      neumaticos: { medida: '225/40 R18', presion: '34 PSI' },
-      bateria: { tipo: '12V 60Ah' },
-      distribucion: { tipo: 'Correa dentada', proximoCambioKm: 90000 },
-    },
-  },
-  '4521LPN': {
-    brand: 'Volkswagen', model: 'Golf GTD', year: 2021, motor: 'Diésel',
-    color: 'Negro Perlado', mileage: 61500, owner: 'Andrés Morales',
-    specs: {
-      aceite: { tipo: '5W-30 Longlife', filtro: 'Mann HU7008z', capacidad: '4.6 L' },
-      frenos: { pastillasDelanteras: 'TRW GDB1330', pastillasTraseras: 'TRW GDB1331', discos: '288mm' },
-      neumaticos: { medida: '225/45 R17', presion: '36 PSI' },
-      bateria: { tipo: '12V 90Ah AGM' },
-      distribucion: { tipo: 'Correa + bomba de agua', proximoCambioKm: 150000 },
-    },
-  },
-};
-
-const GENERIC_FALLBACK: VehicleData = {
-  brand: 'Toyota', model: 'Corolla', year: 2022, motor: 'Gasolina',
-  color: 'Blanco Nieve', mileage: 39800, owner: 'Piloto CarAdvisor',
-  specs: {
-    aceite: { tipo: '0W-16 Sintético Toyota Genuine', filtro: 'Toyota 04152-37010', capacidad: '4.0 L' },
-    frenos: { pastillasDelanteras: 'Akebono ACT-0099', pastillasTraseras: 'Akebono ACT-0100', discos: '282mm' },
-    neumaticos: { medida: '205/55 R16', presion: '32 PSI' },
-    bateria: { tipo: '12V 50Ah' },
-    distribucion: { tipo: 'Cadena (sin mantenimiento programado)', proximoCambioKm: 0 },
-  },
-};
-
-const normalizePlate = (plate: string) => plate.replace(/\s|-/g, '').toUpperCase();
-
-// Decides which part/accessory block is relevant to the selected catalog
-// service, so both the client and the mechanic see exactly what's needed —
-// not just generic car data.
-function getRequiredPart(vehicle: VehicleData, serviceTitle: string) {
-  const s = serviceTitle.toLowerCase();
-  if (s.includes('aceite')) {
-    return {
-      label: 'Cambio de Aceite & Filtro',
-      items: [
-        { k: 'Aceite recomendado', v: vehicle.specs.aceite.tipo },
-        { k: 'Filtro de aceite', v: vehicle.specs.aceite.filtro },
-        { k: 'Capacidad', v: vehicle.specs.aceite.capacidad },
-      ],
-    };
-  }
-  if (s.includes('freno') || s.includes('pastilla')) {
-    return {
-      label: 'Frenos',
-      items: [
-        { k: 'Pastillas delanteras', v: vehicle.specs.frenos.pastillasDelanteras },
-        { k: 'Pastillas traseras', v: vehicle.specs.frenos.pastillasTraseras },
-        { k: 'Discos', v: vehicle.specs.frenos.discos },
-      ],
-    };
-  }
-  if (s.includes('neumático') || s.includes('pinchazo') || s.includes('balanceo')) {
-    return {
-      label: 'Neumáticos',
-      items: [
-        { k: 'Medida', v: vehicle.specs.neumaticos.medida },
-        { k: 'Presión recomendada', v: vehicle.specs.neumaticos.presion },
-      ],
-    };
-  }
-  if (s.includes('batería')) {
-    return {
-      label: 'Batería',
-      items: [{ k: 'Tipo requerido', v: vehicle.specs.bateria.tipo }],
-    };
-  }
-  if (s.includes('obd') || s.includes('diagnóstico')) {
-    return {
-      label: 'Diagnóstico Computarizado',
-      items: [
-        { k: 'Motor', v: vehicle.motor },
-        { k: 'Distribución', v: vehicle.specs.distribucion.tipo },
-      ],
-    };
-  }
-  return null;
-}
+import { PlateInput } from '../components/PlateInput';
+import { VehicleData, getRequiredPart, isPlateValid, lookupVehicle } from '../services/vehicleLookup';
 
 export default function RequestServiceScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ serviceTitle?: string; servicePrice?: string }>();
+  const params = useLocalSearchParams<{
+    serviceTitle?: string;
+    servicePrice?: string;
+    plate?: string;
+  }>();
   const serviceTitle = params.serviceTitle || 'Servicio seleccionado';
   const servicePrice = params.servicePrice;
 
-  const [plate, setPlate] = useState('');
-  const [isLooking, setIsLooking] = useState(false);
+  const [plate, setPlate] = useState(params.plate ?? '');
+  const [isLooking, setIsLooking] = useState(Boolean(params.plate));
   const [vehicle, setVehicle] = useState<VehicleData | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [isConfirming, setIsConfirming] = useState(false);
 
   const requiredPart = vehicle ? getRequiredPart(vehicle, serviceTitle) : null;
 
-  const handleLookup = () => {
-    const clean = normalizePlate(plate);
-    if (clean.length < 6) {
+  const runLookup = async (value: string) => {
+    if (!isPlateValid(value)) {
       setErrorMsg('Introduce una matrícula válida para consultar el vehículo.');
       return;
     }
     setErrorMsg('');
     setVehicle(null);
     setIsLooking(true);
-
-    // Simulated DGT lookup — in production this would call a real registry API.
-    setTimeout(() => {
-      setVehicle(MOCK_VEHICLE_DB[clean] || GENERIC_FALLBACK);
+    try {
+      setVehicle(await lookupVehicle(value));
+    } catch {
+      setErrorMsg('No se pudo consultar el vehículo. Inténtalo de nuevo.');
+    } finally {
       setIsLooking(false);
-    }, 1200);
+    }
   };
+
+  const handleLookup = () => runLookup(plate);
+
+  // Coming from the post-registration screen the plate is already known.
+  useEffect(() => {
+    const knownPlate = params.plate;
+    if (!knownPlate) return;
+    let cancelled = false;
+    lookupVehicle(knownPlate)
+      .then(found => !cancelled && setVehicle(found))
+      .catch(() => !cancelled && setErrorMsg('No se pudo consultar el vehículo. Inténtalo de nuevo.'))
+      .finally(() => !cancelled && setIsLooking(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [params.plate]);
 
   const handleConfirm = () => {
     setIsConfirming(true);
@@ -232,21 +125,7 @@ export default function RequestServiceScreen() {
             <Text style={styles.cardHeaderTitle}>Matrícula del Vehículo</Text>
           </View>
 
-          <View style={styles.plateWidget}>
-            <View style={styles.plateEuBand}>
-              <Text style={styles.plateEuStars}>★★</Text>
-              <Text style={styles.plateEuLetter}>E</Text>
-            </View>
-            <TextInput
-              style={styles.plateInput}
-              value={plate}
-              onChangeText={setPlate}
-              placeholder="0000 XXX"
-              placeholderTextColor="rgba(18,18,18,0.4)"
-              autoCapitalize="characters"
-              maxLength={8}
-            />
-          </View>
+          <PlateInput value={plate} onChangeText={setPlate} onSubmitEditing={handleLookup} />
 
           {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
 
@@ -415,41 +294,6 @@ const styles = StyleSheet.create({
   cardHeaderTitle: {
     ...TYPE.labelMd,
     color: COLORS.onSurface,
-  },
-  plateWidget: {
-    height: 56,
-    backgroundColor: '#FFFFFF',
-    borderRadius: RADIUS.DEFAULT,
-    borderWidth: 2,
-    borderColor: '#D0D4DC',
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    overflow: 'hidden',
-  },
-  plateEuBand: {
-    width: 32,
-    backgroundColor: '#003399',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-  },
-  plateEuStars: {
-    color: '#FFCC00',
-    fontSize: 8,
-    fontWeight: '700',
-  },
-  plateEuLetter: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  plateInput: {
-    flex: 1,
-    textAlign: 'center',
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 22,
-    letterSpacing: 3,
-    color: '#121212',
   },
   errorText: {
     color: COLORS.error,

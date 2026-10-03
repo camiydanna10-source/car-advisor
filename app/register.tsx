@@ -1,301 +1,295 @@
 import React, { useState } from 'react';
 import {
-  StyleSheet,
-  Text,
   View,
+  Text,
   TextInput,
   TouchableOpacity,
+  StyleSheet,
   ScrollView,
-  SafeAreaView,
-  Alert,
-  Platform,
   ActivityIndicator,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { User, Mail, Lock, ArrowRight, ShieldCheck, Eye, EyeOff } from 'lucide-react-native';
+import { COLORS } from '../constants/theme';
 import { registerUser } from '../services/authService';
-
-// Función auxiliar para alertas globales
-const mostrarMensaje = (titulo: string, mensaje: string) => {
-  if (Platform.OS === 'web') {
-    alert(`${titulo}: ${mensaje}`);
-  } else {
-    Alert.alert(titulo, mensaje);
-  }
-};
+import { GlassCard } from '../components/GlassCard';
+import { AuthHeader } from '../components/AuthHeader';
 
 export default function RegisterScreen() {
   const router = useRouter();
 
-  // Estados del formulario
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  
-  // Estados de interfaz
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  
-  // Estado para la pantalla visual de éxito
-  const [isSuccess, setIsSuccess] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleRegister = async () => {
-    // 1. Validar campos vacíos
     if (!name.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
-      mostrarMensaje('Campos incompletos', 'Por favor llena todos los campos obligatorios.');
+      setErrorMsg('Por favor completa todos los campos.');
       return;
     }
-
-    // 2. Validar coincidencia de contraseñas (Doble verificación)
     if (password !== confirmPassword) {
-      mostrarMensaje('Las contraseñas no coinciden', 'Asegúrate de escribir la misma contraseña en ambos campos.');
+      setErrorMsg('Las contraseñas no coinciden.');
       return;
     }
-
-    // 3. Validar longitud mínima de contraseña
     if (password.length < 6) {
-      mostrarMensaje('Contraseña débil', 'La contraseña debe tener al menos 6 caracteres.');
+      setErrorMsg('La contraseña debe tener al menos 6 caracteres.');
       return;
     }
 
-    setLoading(true);
-
+    setErrorMsg('');
+    setIsLoading(true);
     try {
       await registerUser({ name, email, password });
-      setLoading(false);
-      setIsSuccess(true); // Cambia la pantalla a la vista de éxito
-    } catch (error: any) {
-      setLoading(false);
-      mostrarMensaje('Error en el registro', error.message);
+      router.replace({ pathname: '/register-vehicle', params: { name: name.trim() } });
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Error al registrar usuario');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // VISTA VISUAL DE ÉXITO (Respeta tu paleta de colores)
-  if (isSuccess) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-          <Ionicons name="checkmark-circle" size={80} color="#37d1ba" />
-          <Text style={{ fontSize: 24, fontWeight: 'bold', marginTop: 16, color: '#fefefe' }}>
-            ¡Registro Exitoso! 
-          </Text>
-          <Text style={{ fontSize: 16, color: '#a4a4a4', textAlign: 'center', marginTop: 8, marginBottom: 24 }}>
-            Tu cuenta ha sido creada correctamente en CarAdvisor.
-          </Text>
-          <TouchableOpacity
-            style={[styles.button, { width: '100%' }]}
-            onPress={() => router.replace('/')}
-          >
-            <Text style={styles.buttonText}>Ir al Inicio / Login</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
-        {/* Cabecera */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#fefeff" />
-          </TouchableOpacity>
-          <Text style={styles.title}>Crea tu cuenta</Text>
-          <Text style={styles.subtitle}>Ingresa tus datos para registrarte en CarAdvisor</Text>
+    <>
+      <AuthHeader label="Sign Up" />
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <View style={styles.topHeader}>
+          <View style={styles.badgeRow}>
+            <ShieldCheck size={16} color={COLORS.primary} />
+            <Text style={styles.badgeText}>REGISTRO DE PILOTO</Text>
+          </View>
+          <Text style={styles.title}>
+            Crea tu <Text style={styles.titleAccent}>cuenta</Text>
+          </Text>
+          <Text style={styles.subtitle}>
+            Únete a la plataforma de monitoreo mecánico y auxilio vial en tiempo real.
+          </Text>
         </View>
 
-        {/* Formulario */}
-        <View style={styles.form}>
-          
-          {/* Campo Nombre */}
-          <Text style={styles.label}>Nombre completo</Text>
-          <View style={styles.inputContainer}>
-            <Ionicons name="person-outline" size={20} color="#37d1ba" style={styles.icon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Ej. Juan Pérez"
-              placeholderTextColor="#ffffff" 
-              value={name}
-              onChangeText={setName}
-            />
-          </View>
+        <GlassCard variant="primaryGlow" style={styles.formCard}>
+          {errorMsg ? (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText}>{errorMsg}</Text>
+            </View>
+          ) : null}
 
-          {/* Campo Email */}
-          <Text style={styles.label}>Correo electrónico</Text>
-          <View style={styles.inputContainer}>
-            <Ionicons name="mail-outline" size={20} color="#37d1ba" style={styles.icon} />
-            <TextInput
-              style={styles.input}
-              placeholder="ejemplo@correo.com"
-              placeholderTextColor="#fcfcfc" 
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
-            />
-          </View>
-
-          {/* Campo Contraseña */}
-          <Text style={styles.label}>Contraseña</Text>
-          <View style={styles.inputContainer}>
-            <Ionicons name="lock-closed-outline" size={20} color="#37d1ba" style={styles.icon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Mínimo 6 caracteres"
-              placeholderTextColor="#fbfbfb" 
-              secureTextEntry={!showPassword}
-              value={password}
-              onChangeText={setPassword}
-            />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-              <Ionicons
-                name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                size={20}
-                color="#37d1ba"
+          {/* Name Field */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Nombre Completo</Text>
+            <View style={styles.inputWrapper}>
+              <User size={18} color={COLORS.onSurfaceVariant} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Carlos Sainz"
+                placeholderTextColor={COLORS.outline}
+                value={name}
+                onChangeText={setName}
               />
-            </TouchableOpacity>
+            </View>
           </View>
 
-          {/* Campo Confirmar Contraseña */}
-          <Text style={styles.label}>Confirmar contraseña</Text>
-          <View style={styles.inputContainer}>
-            <Ionicons name="shield-checkmark-outline" size={20} color="#37d1ba" style={styles.icon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Repite tu contraseña"
-              placeholderTextColor="#fefefe"
-              secureTextEntry={!showConfirmPassword}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-            />
-            <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-              <Ionicons
-                name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
-                size={20}
-                color="#37d1ba"
+          {/* Email Field */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Correo Electrónico</Text>
+            <View style={styles.inputWrapper}>
+              <Mail size={18} color={COLORS.onSurfaceVariant} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="piloto@caradvisor.app"
+                placeholderTextColor={COLORS.outline}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
               />
-            </TouchableOpacity>
+            </View>
           </View>
 
-          {/* Botón Registrarse */}
+          {/* Password Field */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Contraseña</Text>
+            <View style={styles.inputWrapper}>
+              <Lock size={18} color={COLORS.onSurfaceVariant} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Mínimo 6 caracteres"
+                placeholderTextColor={COLORS.outline}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+              />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                {showPassword ? (
+                  <EyeOff size={18} color={COLORS.onSurfaceVariant} />
+                ) : (
+                  <Eye size={18} color={COLORS.onSurfaceVariant} />
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Confirm Password Field */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Confirmar Contraseña</Text>
+            <View style={styles.inputWrapper}>
+              <ShieldCheck size={18} color={COLORS.onSurfaceVariant} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Repite tu contraseña"
+                placeholderTextColor={COLORS.outline}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry={!showConfirmPassword}
+              />
+              <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                {showConfirmPassword ? (
+                  <EyeOff size={18} color={COLORS.onSurfaceVariant} />
+                ) : (
+                  <Eye size={18} color={COLORS.onSurfaceVariant} />
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Submit Button */}
           <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
+            style={styles.submitBtn}
             onPress={handleRegister}
-            disabled={loading}
+            disabled={isLoading}
+            activeOpacity={0.8}
           >
-            {loading ? (
-              <ActivityIndicator color="#FFF" />
+            {isLoading ? (
+              <ActivityIndicator color={COLORS.onPrimary} />
             ) : (
-              <Text style={styles.buttonText}>Registrarse</Text>
+              <>
+                <Text style={styles.submitBtnText}>Crear Cuenta y Garaje</Text>
+                <ArrowRight size={18} color={COLORS.onPrimary} />
+              </>
             )}
           </TouchableOpacity>
+        </GlassCard>
+
+        <View style={styles.footerRow}>
+          <Text style={styles.footerText}>¿Ya tienes cuenta?</Text>
+          <TouchableOpacity onPress={() => router.push('/')}>
+            <Text style={styles.loginLink}>Iniciar Sesión</Text>
+          </TouchableOpacity>
         </View>
-
-        {/* Footer */}
-        <TouchableOpacity style={styles.footer} onPress={() => router.replace('/')}>
-          <Text style={styles.footerText}>
-            ¿Ya tienes una cuenta? <Text style={styles.footerLink}>Inicia sesión</Text>
-          </Text>
-        </TouchableOpacity>
-
       </ScrollView>
-    </SafeAreaView>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#0d131a',
+  container: {
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 40,
   },
-  scrollContent: {
-    padding: 24,
-    justifyContent: 'center',
-  },
-  header: {
-    marginTop: 10,
+  topHeader: {
     marginBottom: 24,
   },
-  backButton: {
-    marginBottom: 16,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fefefe',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: '#37d1ba',
-  },
-  form: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#a4a4a4',
-    marginBottom: 6,
-    marginTop: 12,
-  },
-  inputContainer: {
+  badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0d131a',
-    borderWidth: 1,
-    borderColor: '#656565',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    height: 50,
+    gap: 6,
+    marginBottom: 8,
   },
-  icon: {
+  badgeText: {
+    color: COLORS.primary,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  title: {
+    color: COLORS.onSurface,
+    fontSize: 28,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+  },
+  titleAccent: {
+    color: COLORS.primary,
+  },
+  subtitle: {
+    color: COLORS.onSurfaceVariant,
+    fontSize: 14,
+    marginTop: 6,
+    lineHeight: 20,
+  },
+  formCard: {
+    gap: 16,
+  },
+  errorBox: {
+    backgroundColor: 'rgba(255, 180, 171, 0.15)',
+    borderWidth: 1,
+    borderColor: COLORS.error,
+    padding: 10,
+    borderRadius: 8,
+  },
+  errorText: {
+    color: COLORS.error,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  inputGroup: {
+    gap: 6,
+  },
+  label: {
+    color: COLORS.onSurfaceVariant,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  inputWrapper: {
+    height: 48,
+    backgroundColor: COLORS.surfaceContainerLowest,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: COLORS.outlineVariant,
+  },
+  inputIcon: {
     marginRight: 10,
   },
   input: {
     flex: 1,
-    fontSize: 15,
-    color: '#ffffff',
+    color: COLORS.onSurface,
+    fontSize: 14,
   },
-  button: {
-    backgroundColor: '#37d1ba',
-    borderRadius: 12,
-    height: 52,
+  submitBtn: {
+    height: 48,
+    backgroundColor: COLORS.primary,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  submitBtnText: {
+    color: COLORS.onPrimary,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  footerRow: {
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 28,
-    shadowColor: '#37d1ba',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  buttonDisabled: {
-    backgroundColor: '#37d1ba',
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  footer: {
-    marginTop: 16,
-    alignItems: 'center',
+    gap: 6,
+    marginTop: 24,
   },
   footerText: {
-    fontSize: 14,
-    color: '#ffffff',
+    color: COLORS.onSurfaceVariant,
+    fontSize: 13,
   },
-  footerLink: {
-    color: '#37d1ba',
-    fontWeight: 'bold',
+  loginLink: {
+    color: COLORS.primary,
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

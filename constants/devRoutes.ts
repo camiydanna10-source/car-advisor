@@ -24,6 +24,24 @@ export const DEV_ROUTE_GROUPS: DevRouteGroup[] = [
         description: 'Éxito de registro + matrícula + servicios',
         href: { pathname: '/register-vehicle', params: { name: 'Carlos Sainz' } },
       },
+      {
+        label: 'Registro del vehículo · login sin vehículo',
+        description: 'Variante "Falta un último paso" (mode=complete)',
+        href: { pathname: '/register-vehicle', params: { name: 'Carlos Sainz', mode: 'complete' } },
+      },
+    ],
+  },
+  {
+    title: 'Zona del cliente (requiere sesión)',
+    routes: [
+      { label: 'Inicio · panel del cliente', description: 'Vehículo, accesos rápidos y servicios', href: '/home' },
+      { label: 'Cronología', description: 'Estado del mantenimiento + historial', href: '/timeline' },
+      { label: 'Perfil', description: 'Datos, vehículos y cerrar sesión', href: '/profile' },
+      {
+        label: 'Añadir otro vehículo',
+        description: 'Variante desde el perfil (mode=add)',
+        href: { pathname: '/register-vehicle', params: { name: 'Carlos Sainz', mode: 'add' } },
+      },
     ],
   },
   {

@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { ChevronLeft, HelpCircle, User } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING } from '../constants/theme';
+import { useSession } from '../hooks/useSession';
 
 interface AuthHeaderProps {
   /** Small English "shell label" accent under the wordmark, e.g. "Sign In" — a stylistic
@@ -15,6 +16,9 @@ interface AuthHeaderProps {
 export const AuthHeader: React.FC<AuthHeaderProps> = ({ label, showBack = true }) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { status } = useSession();
+  // Logged-in clients go back to their home; everyone else to the entry screen.
+  const goHome = () => router.replace(status === 'authenticated' ? '/home' : '/');
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -27,12 +31,12 @@ export const AuthHeader: React.FC<AuthHeaderProps> = ({ label, showBack = true }
           <View style={styles.iconBtn} />
         )}
 
-        <View style={styles.centerGroup}>
+        <TouchableOpacity style={styles.centerGroup} onPress={goHome} accessibilityRole="button" accessibilityLabel="Ir al inicio">
           <Text style={styles.wordmark}>
             Car<Text style={styles.wordmarkAccent}>Advisor</Text>
           </Text>
           <Text style={styles.shellLabel}>{label}</Text>
-        </View>
+        </TouchableOpacity>
 
         <View style={styles.rightGroup}>
           <TouchableOpacity style={styles.iconBtn} accessibilityLabel="Ayuda y soporte">

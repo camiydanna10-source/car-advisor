@@ -12,7 +12,6 @@ import {
   User,
   ClipboardCheck,
   Save,
-  ArrowRight,
   Sparkles,
 } from 'lucide-react-native';
 import { COLORS, TYPE, SPACING, RADIUS, SHADOWS } from '../constants/theme';
@@ -20,7 +19,8 @@ import { GlassCard } from '../components/GlassCard';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { AuthHeader } from '../components/AuthHeader';
 import { PlateInput } from '../components/PlateInput';
-import { StatusChip } from '../components/StatusChip';
+import { SuggestionCard } from '../components/SuggestionCard';
+import { useSession } from '../hooks/useSession';
 import {
   VehicleData,
   getItvInfo,
@@ -29,19 +29,20 @@ import {
   suggestServices,
 } from '../services/vehicleLookup';
 import { createCar } from '../services/carService';
+import { saveVehicle } from '../services/vehicleStorage';
+import { logoutUser } from '../services/authService';
 
-const PRIORITY_CHIP = {
-  high: { label: 'RECOMENDADO', type: 'warning' },
-  medium: { label: 'CONVIENE REVISAR', type: 'info' },
-  low: { label: 'OPCIONAL', type: 'info' },
-} as const;
-
-// Shown right after sign-up. Confirms the account was created (the former standalone
-// "registro exitoso" screen), then the plate completes the client's vehicle record
-// (saved through POST /api/cars) and drives the suggested services, incl. Pre-ITV.
+// Vehicle registration by plate. Three entry points, selected with the `mode` param:
+//  - welcome  (default): right after sign-up. Confirms the account was created (the former
+//             standalone "registro exitoso" screen) and asks for the first vehicle.
+//  - complete: a logged-in client without any registered vehicle (login sends them here).
+//  - add:      adding another vehicle from the profile.
+// The plate completes the vehicle record (POST /api/cars) and drives the suggested services.
 export default function RegisterVehicleScreen() {
   const router = useRouter();
-  const { name } = useLocalSearchParams<{ name?: string }>();
+  const { name, mode } = useLocalSearchParams<{ name?: string; mode?: string }>();
+  const flow = mode === 'complete' || mode === 'add' ? mode : 'welcome';
+  const { user } = useSession();
 
   const [plate, setPlate] = useState('');
   const [isLooking, setIsLooking] = useState(false);
@@ -74,10 +75,15 @@ export default function RegisterVehicleScreen() {
 
   const handleSave = async () => {
     if (!vehicle) return;
+    if (!user) {
+      setSaveError('Tu sesión no está activa. Inicia sesión de nuevo para guardar el vehículo.');
+      return;
+    }
     setSaveError('');
     setIsSaving(true);
     try {
       await createCar(vehicle);
+      await saveVehicle(user.email, vehicle);
       setSaved(true);
     } catch (err: any) {
       setSaveError(err.message || 'No se pudo guardar el vehículo.');
@@ -93,30 +99,53 @@ export default function RegisterVehicleScreen() {
     <>
       <AuthHeader label="Vehicle Setup" showBack={false} />
       <ScreenContainer keyboardShouldPersistTaps="handled">
-        <GlassCard variant="primaryGlow" style={styles.successCard}>
-          <CheckCircle2 size={40} color={COLORS.primary} />
-          <View style={styles.successTextBox}>
-            <Text style={styles.successTitle}>¡Registro exitoso!</Text>
-            <Text style={styles.successSubtitle}>
-              Tu cuenta ha sido creada correctamente en CarAdvisor.
-            </Text>
-          </View>
-        </GlassCard>
+        {flow === 'welcome' && (
+          <GlassCard variant="primaryGlow" style={styles.successCard}>
+            <CheckCircle2 size={40} color={COLORS.primary} />
+            <View style={styles.successTextBox}>
+              <Text style={styles.successTitle}>¡Registro exitoso!</Text>
+              <Text style={styles.successSubtitle}>
+                Tu cuenta ha sido creada correctamente en CarAdvisor.
+              </Text>
+            </View>
+          </GlassCard>
+        )}
+        {flow === 'complete' && (
+          <GlassCard variant="alertGlow" style={styles.successCard}>
+            <Car size={40} color={COLORS.tertiary} />
+            <View style={styles.successTextBox}>
+              <Text style={styles.successTitle}>Falta un último paso</Text>
+              <Text style={styles.successSubtitle}>
+                Para usar CarAdvisor necesitamos al menos un vehículo registrado en tu cuenta.
+              </Text>
+            </View>
+          </GlassCard>
+        )}
 
         <View style={styles.headerBox}>
-          <View style={styles.stepPill}>
-            <View style={styles.stepDot} />
-            <Text style={styles.stepPillText}>PASO 2 DE 2 · TU VEHÍCULO</Text>
-          </View>
-          <View style={styles.progressRow}>
-            <View style={[styles.progressSegment, styles.progressDone]} />
-            <View style={[styles.progressSegment, saved && styles.progressDone]} />
-          </View>
+          {flow === 'welcome' && (
+            <>
+              <View style={styles.stepPill}>
+                <View style={styles.stepDot} />
+                <Text style={styles.stepPillText}>PASO 2 DE 2 · TU VEHÍCULO</Text>
+              </View>
+              <View style={styles.progressRow}>
+                <View style={[styles.progressSegment, styles.progressDone]} />
+                <View style={[styles.progressSegment, saved && styles.progressDone]} />
+              </View>
+            </>
+          )}
           <Text style={styles.title}>
-            {firstName ? `${firstName}, ¿qué coche conduces?` : '¿Qué coche conduces?'}
+            {flow === 'add'
+              ? 'Añadir otro vehículo'
+              : firstName
+                ? `${firstName}, ¿qué coche conduces?`
+                : '¿Qué coche conduces?'}
           </Text>
           <Text style={styles.subtitle}>
-            Introduce tu matrícula y completaremos los datos del vehículo en tu ficha de cliente.
+            {flow === 'add'
+              ? 'Introduce la matrícula del nuevo coche y lo añadiremos a tu perfil.'
+              : 'Introduce tu matrícula y completaremos los datos del vehículo en tu ficha de cliente.'}
           </Text>
         </View>
 
@@ -222,46 +251,50 @@ export default function RegisterVehicleScreen() {
               <Text style={styles.sectionTitle}>Servicios recomendados para tu {vehicle.brand}</Text>
             </View>
 
-            {suggestions.map(({ service, reason, priority }) => (
-              <GlassCard key={service.id} style={styles.suggestionCard}>
-                <View style={styles.suggestionTop}>
-                  <StatusChip
-                    label={PRIORITY_CHIP[priority].label}
-                    type={PRIORITY_CHIP[priority].type}
-                  />
-                  <Text style={styles.servicePrice}>{service.price}€</Text>
-                </View>
-                <Text style={styles.serviceTitle}>{service.title}</Text>
-                <Text style={styles.serviceReason}>{reason}</Text>
-                <View style={styles.suggestionFooter}>
-                  <Text style={styles.timeTag}>⏱️ {service.estimatedTime}</Text>
-                  <TouchableOpacity
-                    style={styles.requestBtn}
-                    onPress={() =>
-                      router.push({
-                        pathname: '/request-service',
-                        params: {
-                          serviceTitle: service.title,
-                          servicePrice: String(service.price),
-                          plate: vehicle.plate,
-                        },
-                      })
-                    }
-                  >
-                    <Text style={styles.requestBtnText}>Solicitar</Text>
-                    <ArrowRight size={14} color={COLORS.onPrimary} />
-                  </TouchableOpacity>
-                </View>
-              </GlassCard>
+            {suggestions.map(suggestion => (
+              <SuggestionCard
+                key={suggestion.service.id}
+                suggestion={suggestion}
+                onRequest={() =>
+                  router.push({
+                    pathname: '/request-service',
+                    params: {
+                      serviceTitle: suggestion.service.title,
+                      servicePrice: String(suggestion.service.price),
+                      plate: vehicle.plate,
+                    },
+                  })
+                }
+              />
             ))}
           </View>
         )}
 
-        <TouchableOpacity style={styles.footerLink} onPress={() => router.replace('/')}>
-          <Text style={styles.footerLinkText}>
-            {saved ? 'Continuar al inicio de sesión' : 'Omitir por ahora'}
-          </Text>
-        </TouchableOpacity>
+        {saved ? (
+          <TouchableOpacity
+            style={[styles.continueBtn, SHADOWS.glass]}
+            onPress={() => router.replace(flow === 'add' ? '/profile' : '/home')}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.continueBtnText}>
+              {flow === 'add' ? 'Volver a mi perfil' : 'Ir a mi panel'}
+            </Text>
+          </TouchableOpacity>
+        ) : flow === 'add' ? (
+          <TouchableOpacity style={styles.footerLink} onPress={() => router.back()}>
+            <Text style={styles.footerLinkText}>Cancelar</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.footerLink}
+            onPress={async () => {
+              await logoutUser();
+              router.replace('/');
+            }}
+          >
+            <Text style={styles.footerLinkText}>Usar otra cuenta (cerrar sesión)</Text>
+          </TouchableOpacity>
+        )}
       </ScreenContainer>
     </>
   );
@@ -451,53 +484,16 @@ const styles = StyleSheet.create({
     color: COLORS.onSurface,
     flex: 1,
   },
-  suggestionCard: {
-    gap: 8,
-  },
-  suggestionTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  servicePrice: {
-    color: COLORS.primary,
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  serviceTitle: {
-    color: COLORS.onSurface,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  serviceReason: {
-    color: COLORS.onSurfaceVariant,
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  suggestionFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.outlineVariant,
-  },
-  timeTag: {
-    color: COLORS.onSurfaceVariant,
-    fontSize: 12,
-  },
-  requestBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+  continueBtn: {
+    height: 52,
     backgroundColor: COLORS.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    borderRadius: RADIUS.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  requestBtnText: {
+  continueBtnText: {
     color: COLORS.onPrimary,
-    fontSize: 12,
+    fontSize: 15,
     fontWeight: '700',
   },
   footerLink: {

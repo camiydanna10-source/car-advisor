@@ -48,6 +48,17 @@ const removeStorageItem = async (key: string): Promise<void> => {
   }
 };
 
+export interface SessionUser {
+  name?: string;
+  email: string;
+}
+
+// Guarda token + datos del usuario (usado por login, registro y la sesión demo del menú DEV).
+export const persistSession = async (token: string, user: SessionUser): Promise<void> => {
+  await setStorageItem(TOKEN_KEY, token);
+  await setStorageItem(USER_KEY, JSON.stringify({ name: user.name, email: user.email }));
+};
+
 // Iniciar Sesión
 export const loginUser = async (data: LoginData): Promise<AuthResponse> => {
   try {
@@ -68,8 +79,7 @@ export const loginUser = async (data: LoginData): Promise<AuthResponse> => {
 
     // Guardar el token en el almacenamiento seguro/web
     if (result.token) {
-      await setStorageItem(TOKEN_KEY, result.token);
-      await setStorageItem(USER_KEY, JSON.stringify({ name: result.name, email: result.email }));
+      await persistSession(result.token, { name: result.name, email: result.email });
     }
 
     return result;
@@ -98,8 +108,7 @@ export const registerUser = async (data: RegisterData): Promise<AuthResponse> =>
 
     // Guardar el token si el registro inicia sesión automáticamente
     if (result.token) {
-      await setStorageItem(TOKEN_KEY, result.token);
-      await setStorageItem(USER_KEY, JSON.stringify({ name: result.name, email: result.email }));
+      await persistSession(result.token, { name: result.name, email: result.email });
     }
 
     return result;

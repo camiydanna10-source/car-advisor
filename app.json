@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "car-advisor-mobile",
+    "name": "CarAdvisor",
     "slug": "car-advisor-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "caradvisormobile",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "ios": {
       "icon": "./assets/expo.icon"
     },
@@ -34,12 +34,18 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#101415",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "color": "#29A195"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

@@ -25,10 +25,19 @@ import { GlassCard } from '../components/GlassCard';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { AuthHeader } from '../components/AuthHeader';
 import { PlateInput } from '../components/PlateInput';
-import { VehicleData, getRequiredPart, isPlateValid, lookupVehicle } from '../services/vehicleLookup';
+import { useSession } from '../hooks/useSession';
+import {
+  VehicleData,
+  formatPlate,
+  getRequiredPart,
+  isPlateValid,
+  lookupVehicle,
+} from '../services/vehicleLookup';
 
 export default function RequestServiceScreen() {
   const router = useRouter();
+  const { status: sessionStatus, vehicles } = useSession();
+  const myVehicle = sessionStatus === 'authenticated' ? vehicles[0] : undefined;
   const params = useLocalSearchParams<{
     serviceTitle?: string;
     servicePrice?: string;
@@ -88,7 +97,7 @@ export default function RequestServiceScreen() {
       Alert.alert(
         '¡Servicio solicitado!',
         `${serviceTitle} agendado para ${vehicle?.brand} ${vehicle?.model} (${plate.toUpperCase()}).${partLine}\n\nUn asesor te contactará para confirmar la cita.`,
-        [{ text: 'Entendido', onPress: () => router.push('/catalog') }]
+        [{ text: 'Entendido', onPress: () => router.replace(myVehicle ? '/home' : '/catalog') }]
       );
     }, 1000);
   };
@@ -126,6 +135,21 @@ export default function RequestServiceScreen() {
           </View>
 
           <PlateInput value={plate} onChangeText={setPlate} onSubmitEditing={handleLookup} />
+
+          {myVehicle && !vehicle && !isLooking ? (
+            <TouchableOpacity
+              style={styles.myVehicleBtn}
+              onPress={() => {
+                setPlate(myVehicle.plate);
+                runLookup(myVehicle.plate);
+              }}
+            >
+              <Car size={16} color={COLORS.primary} />
+              <Text style={styles.myVehicleText}>
+                Usar mi {myVehicle.brand} {myVehicle.model} ({formatPlate(myVehicle.plate)})
+              </Text>
+            </TouchableOpacity>
+          ) : null}
 
           {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
 
@@ -294,6 +318,22 @@ const styles = StyleSheet.create({
   cardHeaderTitle: {
     ...TYPE.labelMd,
     color: COLORS.onSurface,
+  },
+  myVehicleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 42,
+    borderRadius: RADIUS.DEFAULT,
+    borderWidth: 1,
+    borderColor: 'rgba(107, 216, 203, 0.4)',
+    backgroundColor: 'rgba(107, 216, 203, 0.08)',
+  },
+  myVehicleText: {
+    color: COLORS.primary,
+    fontSize: 12,
+    fontWeight: '700',
   },
   errorText: {
     color: COLORS.error,

@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { Mail, Lock, Key, ArrowRight, ShieldAlert, Fingerprint, Eye, EyeOff } from 'lucide-react-native';
 import { COLORS } from '../constants/theme';
 import { loginUser } from '../services/authService';
+import { getVehicles } from '../services/vehicleStorage';
 import { GlassCard } from '../components/GlassCard';
 import { AuthHeader } from '../components/AuthHeader';
 
@@ -25,29 +26,34 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async () => {
-  if (!email || !password) {
-    setErrorMsg('Por favor ingresa tu correo y contraseña.');
-    return;
-  }
-  
-  setErrorMsg('');
-  setIsLoading(true);
-  
-  try {
-    const response = await loginUser({ email, password });
-    
-    // 1. Ver en consola del navegador la respuesta de Spring Boot (Token, Email, etc.)
-    console.log('Login exitoso:', response);
+    if (!email || !password) {
+      setErrorMsg('Por favor ingresa tu correo y contraseña.');
+      return;
+    }
 
-    // 2. Redirigir al catálogo reemplazando la pantalla actual
-    router.replace('/catalog');
-  } catch (err: any) {
-    console.error('Error en Login:', err);
-    setErrorMsg(err.message || 'Error al iniciar sesión');
-  } finally {
-    setIsLoading(false);
-  }
-};
+    setErrorMsg('');
+    setIsLoading(true);
+
+    try {
+      const response = await loginUser({ email, password });
+
+      // El cliente debe tener al menos un vehículo registrado: con vehículo va a su panel,
+      // sin vehículo se le pide completarlo antes de continuar.
+      const vehicles = await getVehicles(response.email);
+      if (vehicles.length > 0) {
+        router.replace('/home');
+      } else {
+        router.replace({
+          pathname: '/register-vehicle',
+          params: { name: response.name ?? '', mode: 'complete' },
+        });
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Error al iniciar sesión');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleGuestSOS = () => {
     router.push('/sos');

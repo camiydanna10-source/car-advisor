@@ -25,21 +25,29 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      setErrorMsg('Por favor ingresa tu correo y contraseña.');
-      return;
-    }
-    setErrorMsg('');
-    setIsLoading(true);
-    try {
-      await loginUser({ email, password });
-      Alert.alert('¡Bienvenido, piloto!', 'Sesión iniciada correctamente.');
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Error al iniciar sesión');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  if (!email || !password) {
+    setErrorMsg('Por favor ingresa tu correo y contraseña.');
+    return;
+  }
+  
+  setErrorMsg('');
+  setIsLoading(true);
+  
+  try {
+    const response = await loginUser({ email, password });
+    
+    // 1. Ver en consola del navegador la respuesta de Spring Boot (Token, Email, etc.)
+    console.log('Login exitoso:', response);
+
+    // 2. Redirigir al catálogo reemplazando la pantalla actual
+    router.replace('/catalog');
+  } catch (err: any) {
+    console.error('Error en Login:', err);
+    setErrorMsg(err.message || 'Error al iniciar sesión');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const handleGuestSOS = () => {
     router.push('/sos');

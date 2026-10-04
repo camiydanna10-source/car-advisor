@@ -18,12 +18,3 @@ export const TYPE: Record<string, TypeToken> = {
   labelSm: { fontFamily: 'Inter_500Medium', fontSize: 10, fontWeight: '500', lineHeight: 14 },
   telemetryNum: { fontFamily: 'Montserrat_700Bold', fontSize: 32, fontWeight: '700', lineHeight: 36 },
 };
-
-// Fonts that must be loaded via useFonts() before any TYPE token can render correctly.
-export const FONT_WEIGHTS_USED = [
-  'Montserrat_600SemiBold',
-  'Montserrat_700Bold',
-  'Inter_400Regular',
-  'Inter_500Medium',
-  'Inter_600SemiBold',
-] as const;

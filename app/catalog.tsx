@@ -6,12 +6,17 @@ import { COLORS, TYPE, SPACING } from '../constants/theme';
 import { GlassCard } from '../components/GlassCard';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { AuthHeader } from '../components/AuthHeader';
+import { AppHeader } from '../components/AppHeader';
+import { BottomNav } from '../components/BottomNav';
+import { useSession } from '../hooks/useSession';
 import { SERVICES, ServiceCategory } from '../services/serviceCatalog';
 
 // Guest-accessible service catalog + cost estimator — exploration without an
 // account, per the "Visualizador/Invitado" flow from the product docs.
 export default function ServiceCatalogScreen() {
   const router = useRouter();
+  const { status, user, vehicles } = useSession();
+  const isClient = status === 'authenticated';
   const [activeCategory, setActiveCategory] = useState<'TODOS' | ServiceCategory>('TODOS');
 
   const filteredServices = activeCategory === 'TODOS'
@@ -20,12 +25,12 @@ export default function ServiceCatalogScreen() {
 
   return (
     <>
-      <AuthHeader label="Guest Catalog" />
+      {isClient ? <AppHeader userName={user?.name} /> : <AuthHeader label="Guest Catalog" />}
       <ScreenContainer>
         <View style={styles.headerBox}>
           <View style={styles.badgeRow}>
             <ShoppingBag size={16} color={COLORS.primary} />
-            <Text style={styles.badgeText}>CATÁLOGO DE SERVICIOS · SIN REGISTRO</Text>
+            <Text style={styles.badgeText}>{isClient ? 'CATÁLOGO DE SERVICIOS' : 'CATÁLOGO DE SERVICIOS · SIN REGISTRO'}</Text>
           </View>
           <Text style={styles.title}>Servicios & Cotizador</Text>
           <Text style={styles.subtitle}>
@@ -80,7 +85,11 @@ export default function ServiceCatalogScreen() {
                   onPress={() =>
                     router.push({
                       pathname: '/request-service',
-                      params: { serviceTitle: item.title, servicePrice: String(item.price) },
+                      params: {
+                        serviceTitle: item.title,
+                        servicePrice: String(item.price),
+                        ...(isClient && vehicles[0] ? { plate: vehicles[0].plate } : {}),
+                      },
                     })
                   }
                 >
@@ -92,12 +101,15 @@ export default function ServiceCatalogScreen() {
           ))}
         </View>
 
-        {/* Guest footer: jump to SOS */}
-        <TouchableOpacity style={styles.sosLink} onPress={() => router.push('/sos')}>
-          <AlertOctagon size={16} color={COLORS.tertiary} />
-          <Text style={styles.sosLinkText}>¿Es una emergencia? Pedir auxilio vial</Text>
-        </TouchableOpacity>
+        {/* Guest footer: jump to SOS (clients have it in the bottom bar) */}
+        {!isClient && (
+          <TouchableOpacity style={styles.sosLink} onPress={() => router.push('/sos')}>
+            <AlertOctagon size={16} color={COLORS.tertiary} />
+            <Text style={styles.sosLinkText}>¿Es una emergencia? Pedir auxilio vial</Text>
+          </TouchableOpacity>
+        )}
       </ScreenContainer>
+      {isClient && <BottomNav />}
     </>
   );
 }

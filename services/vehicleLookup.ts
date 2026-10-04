@@ -1,4 +1,8 @@
-import { SERVICES, ServiceItem } from './serviceCatalog';
+import { getItvInfo } from './maintenancePlan';
+
+// ITV rules and the maintenance plan live in maintenancePlan.ts; re-exported for existing imports.
+export { getItvInfo, suggestServices } from './maintenancePlan';
+export type { ItvInfo, ServiceSuggestion } from './maintenancePlan';
 
 // Per-vehicle technical specs — the exact part/accessory references a
 // mechanic needs to have ready, keyed by maintenance area.
@@ -20,6 +24,11 @@ export interface VehicleData {
   mileage: number;
   owner: string;
   specs: VehiclePartSpecs;
+  // Dates (ISO yyyy-mm-dd). The simulated lookup does not return them; a real data provider
+  // will, and the maintenance plan / notifications switch to exact dates as soon as they exist.
+  registrationDate?: string;
+  itvLastDate?: string;
+  itvDueDate?: string;
 }
 
 type VehicleRecord = Omit<VehicleData, 'plate'>;
@@ -85,27 +94,6 @@ export const lookupVehicle = (plate: string): Promise<VehicleData> =>
     setTimeout(() => resolve({ plate: clean, ...(MOCK_VEHICLE_DB[clean] ?? GENERIC_FALLBACK) }), 1200);
   });
 
-// ---- ITV (Spain): first inspection at 4 years, then every 2 years until 10, then yearly.
-export interface ItvInfo {
-  age: number;
-  summary: string;
-  priority: 'high' | 'medium' | 'low';
-}
-
-export function getItvInfo(vehicle: Pick<VehicleData, 'year'>, now = new Date()): ItvInfo {
-  const age = now.getFullYear() - vehicle.year;
-  if (age < 3) {
-    return { age, summary: `Primera ITV a los 4 años (en ~${4 - age} años).`, priority: 'low' };
-  }
-  if (age < 4) {
-    return { age, summary: 'Primera ITV próxima: se exige a los 4 años de la matriculación.', priority: 'medium' };
-  }
-  if (age <= 10) {
-    return { age, summary: `ITV cada 2 años (vehículo de ${age} años).`, priority: 'high' };
-  }
-  return { age, summary: `ITV anual (vehículo de ${age} años).`, priority: 'high' };
-}
-
 // Which part/accessory block is relevant to the selected catalog service.
 export function getRequiredPart(vehicle: VehicleData, serviceTitle: string) {
   const s = serviceTitle.toLowerCase();
@@ -167,48 +155,19 @@ export function getRequiredPart(vehicle: VehicleData, serviceTitle: string) {
   return null;
 }
 
-export interface ServiceSuggestion {
-  service: ServiceItem;
-  reason: string;
-  priority: 'high' | 'medium' | 'low';
-}
+// "1234ABC" -> "1234 ABC" (current Spanish format); anything else is returned untouched.
+export const formatPlate = (plate: string) => {
+  const clean = normalizePlate(plate);
+  return /^\d{4}[A-Z]{3}$/.test(clean) ? `${clean.slice(0, 4)} ${clean.slice(4)}` : clean;
+};
 
-const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 } as const;
+const COLOR_HEX: Record<string, string> = {
+  'Gris Titanio': '#595D63',
+  'Blanco Nieve': '#F0F3F6',
+  'Negro Perlado': '#141517',
+  'Rojo Cristal': '#A61C1E',
+  'Azul Índigo': '#1D3557',
+};
 
-// Rule-based suggestions from the vehicle's age and mileage. The catalog has no
-// service history, so reasons are phrased as recommendations, not as due dates.
-export function suggestServices(vehicle: VehicleData): ServiceSuggestion[] {
-  const byId = (id: string) => SERVICES.find(s => s.id === id)!;
-  const itv = getItvInfo(vehicle);
-  const km = vehicle.mileage.toLocaleString('es-ES');
-  const suggestions: ServiceSuggestion[] = [];
-
-  if (itv.priority !== 'low') {
-    suggestions.push({
-      service: byId('s6'),
-      priority: itv.priority,
-      reason: `${itv.summary} Pasa la Pre-ITV antes de la inspección oficial.`,
-    });
-  }
-  if (vehicle.mileage >= 15000) {
-    suggestions.push({
-      service: byId('s1'),
-      priority: vehicle.mileage >= 30000 ? 'high' : 'medium',
-      reason: `Tu coche lleva ${km} km: el aceite y el filtro se renuevan cada 15.000 km aprox.`,
-    });
-  }
-  if (vehicle.mileage >= 50000) {
-    suggestions.push({
-      service: byId('s3'),
-      priority: 'medium',
-      reason: `Con ${km} km conviene revisar el estado y el balanceo de los neumáticos.`,
-    });
-  }
-  suggestions.push({
-    service: byId('s2'),
-    priority: 'low',
-    reason: 'Un diagnóstico OBD-II detecta fallos de motor, transmisión y frenos antes de que se agraven.',
-  });
-
-  return suggestions.sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]);
-}
+// Swatch colour for the vehicle's registered paint name (neutral grey when unknown).
+export const colorHex = (name: string) => COLOR_HEX[name] ?? '#8A939B';

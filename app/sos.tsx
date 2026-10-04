@@ -19,6 +19,10 @@ import { GlassCard } from '../components/GlassCard';
 import { StatusChip } from '../components/StatusChip';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { AuthHeader } from '../components/AuthHeader';
+import { AppHeader } from '../components/AppHeader';
+import { BottomNav } from '../components/BottomNav';
+import { useSession } from '../hooks/useSession';
+import { formatPlate } from '../services/vehicleLookup';
 import { GpsFix, buildMapsUrl, useGpsLocation } from '../hooks/useGpsLocation';
 
 type EmergencyType = 'TOW' | 'TIRE' | 'BATTERY' | 'MECHANICAL';
@@ -57,6 +61,9 @@ export default function RoadsideSOSScreen() {
   const [selectedType, setSelectedType] = useState<EmergencyType>('TOW');
   const [activeSOS, setActiveSOS] = useState<ActiveSOS | null>(null);
   const { status: gpsStatus, fix: gpsFix, refresh: refreshGps } = useGpsLocation();
+  const { status: sessionStatus, user, vehicles } = useSession();
+  const isClient = sessionStatus === 'authenticated';
+  const vehicle = isClient ? vehicles[0] : undefined;
 
   const handleLaunchSOS = () => {
     setActiveSOS({
@@ -84,6 +91,10 @@ export default function RoadsideSOSScreen() {
       `🚨 *AUXILIO VIAL URGENTE CAR ADVISOR*\n\n` +
       locationLine +
       `🔧 *Asistencia solicitada:* ${emergencyLabel(activeSOS.type)}\n` +
+      (vehicle
+        ? `🚗 *Vehículo:* ${vehicle.brand} ${vehicle.model} (${formatPlate(vehicle.plate)}) · ${vehicle.color}\n`
+        : '') +
+      (user ? `👤 *Cliente:* ${user.name ?? user.email}\n` : '') +
       `⚠️ Por favor despachar mecánico de guardia.`;
     Linking.openURL(`https://wa.me/?text=${encodeURIComponent(message)}`).catch(() => {
       Alert.alert('WhatsApp no disponible', 'No se pudo abrir WhatsApp en este dispositivo.');
@@ -98,12 +109,14 @@ export default function RoadsideSOSScreen() {
 
   return (
     <>
-      <AuthHeader label="Guest SOS" />
+      {isClient ? <AppHeader userName={user?.name} /> : <AuthHeader label="Guest SOS" />}
       <ScreenContainer>
         <View style={styles.headerBox}>
           <View style={styles.badgeRow}>
             <AlertOctagon size={16} color={COLORS.tertiary} />
-            <Text style={styles.badgeText}>AUXILIO EN CARRETERA 24/7 · SIN REGISTRO</Text>
+            <Text style={styles.badgeText}>
+              {isClient ? 'AUXILIO EN CARRETERA 24/7' : 'AUXILIO EN CARRETERA 24/7 · SIN REGISTRO'}
+            </Text>
           </View>
           <Text style={styles.title}>Asistencia SOS de Emergencia</Text>
           <Text style={styles.subtitle}>
@@ -238,12 +251,15 @@ export default function RoadsideSOSScreen() {
           </>
         )}
 
-        {/* Guest footer: browse catalog without registering */}
-        <TouchableOpacity style={styles.catalogLink} onPress={() => router.push('/catalog')}>
-          <ShoppingBag size={16} color={COLORS.primary} />
-          <Text style={styles.catalogLinkText}>Ver catálogo de servicios sin registrarme</Text>
-        </TouchableOpacity>
+        {/* Guest footer: browse catalog without registering (clients have the bottom bar) */}
+        {!isClient && (
+          <TouchableOpacity style={styles.catalogLink} onPress={() => router.push('/catalog')}>
+            <ShoppingBag size={16} color={COLORS.primary} />
+            <Text style={styles.catalogLinkText}>Ver catálogo de servicios sin registrarme</Text>
+          </TouchableOpacity>
+        )}
       </ScreenContainer>
+      {isClient && <BottomNav />}
     </>
   );
 }

@@ -14,30 +14,25 @@ import {
   Save,
   Sparkles,
 } from 'lucide-react-native';
-import { COLORS, TYPE, SPACING, RADIUS, SHADOWS } from '../constants/theme';
-import { GlassCard } from '../components/GlassCard';
-import { ScreenContainer } from '../components/ScreenContainer';
-import { AuthHeader } from '../components/AuthHeader';
-import { PlateInput } from '../components/PlateInput';
-import { SuggestionCard } from '../components/SuggestionCard';
-import { useSession } from '../hooks/useSession';
+import { COLORS, TYPE, SPACING, RADIUS, SHADOWS } from '../../constants/theme';
+import { GlassCard } from '../../components/GlassCard';
+import { ScreenContainer } from '../../components/ScreenContainer';
+import { AuthHeader } from '../../components/AuthHeader';
+import { PlateInput } from '../../components/PlateInput';
+import { SuggestionCard } from '../../components/SuggestionCard';
+import { useSession } from '../../hooks/useSession';
 import {
   VehicleData,
   getItvInfo,
   isPlateValid,
   lookupVehicle,
   suggestServices,
-} from '../services/vehicleLookup';
-import { createCar } from '../services/carService';
-import { saveVehicle } from '../services/vehicleStorage';
-import { logoutUser } from '../services/authService';
+} from '../../services/vehicleLookup';
+import { createCar } from '../../services/carService';
+import { saveVehicle } from '../../services/vehicleStorage';
+import { logoutUser } from '../../services/authService';
+import { BottomNav } from '../../components/BottomNav';
 
-// Vehicle registration by plate. Three entry points, selected with the `mode` param:
-//  - welcome  (default): right after sign-up. Confirms the account was created (the former
-//             standalone "registro exitoso" screen) and asks for the first vehicle.
-//  - complete: a logged-in client without any registered vehicle (login sends them here).
-//  - add:      adding another vehicle from the profile.
-// The plate completes the vehicle record (POST /api/cars) and drives the suggested services.
 export default function RegisterVehicleScreen() {
   const router = useRouter();
   const { name, mode } = useLocalSearchParams<{ name?: string; mode?: string }>();
@@ -296,6 +291,9 @@ export default function RegisterVehicleScreen() {
           </TouchableOpacity>
         )}
       </ScreenContainer>
+
+      {/* Barra personalizada integrada */}
+      <BottomNav activeTab="profile" />
     </>
   );
 }

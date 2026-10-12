@@ -13,16 +13,16 @@ import {
   Trash2,
   type LucideIcon,
 } from 'lucide-react-native';
-import { COLORS, RADIUS, SPACING, TYPE } from '../constants/theme';
-import { GlassCard } from '../components/GlassCard';
-import { ScreenContainer } from '../components/ScreenContainer';
-import { AppHeader } from '../components/AppHeader';
-import { BottomNav } from '../components/BottomNav';
-import { BottomSheet } from '../components/BottomSheet';
-import { FadeInView } from '../components/FadeInView';
-import { useSession } from '../hooks/useSession';
-import { useServiceHistory } from '../hooks/useServiceHistory';
-import { useNotificationSync } from '../hooks/useNotificationSync';
+import { COLORS, RADIUS, SPACING, TYPE } from '../../constants/theme';
+import { GlassCard } from '../../components/GlassCard';
+import { ScreenContainer } from '../../components/ScreenContainer';
+import { AppHeader } from '../../components/AppHeader';
+import { BottomNav } from '../../components/BottomNav';
+import { BottomSheet } from '../../components/BottomSheet';
+import { FadeInView } from '../../components/FadeInView';
+import { useSession } from '../../hooks/useSession';
+import { useServiceHistory } from '../../hooks/useServiceHistory';
+import { useNotificationSync } from '../../hooks/useNotificationSync';
 import {
   MaintenanceKind,
   MaintenanceStatus,
@@ -32,10 +32,10 @@ import {
   buildMaintenancePlan,
   formatDate,
   toISODate,
-} from '../services/maintenancePlan';
-import { SERVICES } from '../services/serviceCatalog';
-import { addRecord, deleteRecord } from '../services/serviceHistoryStorage';
-import { updateVehicle } from '../services/vehicleStorage';
+} from '../../services/maintenancePlan';
+import { SERVICES } from '../../services/serviceCatalog';
+import { addRecord, deleteRecord } from '../../services/serviceHistoryStorage';
+import { updateVehicle } from '../../services/vehicleStorage';
 
 const KIND_ICON: Record<MaintenanceKind, LucideIcon> = {
   itv: ClipboardCheck,

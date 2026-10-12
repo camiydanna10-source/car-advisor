@@ -18,22 +18,22 @@ import {
   ShieldCheck,
   Wrench,
 } from 'lucide-react-native';
-import { COLORS, RADIUS, SPACING, TYPE } from '../constants/theme';
-import { GlassCard } from '../components/GlassCard';
-import { ScreenContainer } from '../components/ScreenContainer';
-import { AppHeader } from '../components/AppHeader';
-import { BottomNav } from '../components/BottomNav';
-import { BottomSheet } from '../components/BottomSheet';
-import { FadeInView } from '../components/FadeInView';
-import { OdometerGauge } from '../components/OdometerGauge';
-import { SuggestionCard } from '../components/SuggestionCard';
-import { useSession } from '../hooks/useSession';
-import { useServiceHistory } from '../hooks/useServiceHistory';
-import { useNotificationSync } from '../hooks/useNotificationSync';
-import { RECORD_LABEL, formatDate } from '../services/maintenancePlan';
-import { SERVICES } from '../services/serviceCatalog';
-import { colorHex, formatPlate, getItvInfo, suggestServices } from '../services/vehicleLookup';
-import { setActiveVehicle } from '../services/vehicleStorage';
+import { COLORS, RADIUS, SPACING, TYPE } from '../../constants/theme';
+import { GlassCard } from '../../components/GlassCard';
+import { ScreenContainer } from '../../components/ScreenContainer';
+import { AppHeader } from '../../components/AppHeader';
+import { BottomNav } from '../../components/BottomNav';
+import { BottomSheet } from '../../components/BottomSheet';
+import { FadeInView } from '../../components/FadeInView';
+import { OdometerGauge } from '../../components/OdometerGauge';
+import { SuggestionCard } from '../../components/SuggestionCard';
+import { useSession } from '../../hooks/useSession';
+import { useServiceHistory } from '../../hooks/useServiceHistory';
+import { useNotificationSync } from '../../hooks/useNotificationSync';
+import { RECORD_LABEL, formatDate } from '../../services/maintenancePlan';
+import { SERVICES } from '../../services/serviceCatalog';
+import { colorHex, formatPlate, getItvInfo, suggestServices } from '../../services/vehicleLookup';
+import { setActiveVehicle } from '../../services/vehicleStorage';
 
 // Client home (dashboard prototype). It only shows data we really have for the vehicle:
 // registry fields, ITV status derived from its year, and rule-based service suggestions.

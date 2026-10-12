@@ -2,14 +2,14 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { ShoppingBag, Wrench, Disc, Sparkles, ArrowRight, AlertOctagon } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { COLORS, TYPE, SPACING } from '../constants/theme';
-import { GlassCard } from '../components/GlassCard';
-import { ScreenContainer } from '../components/ScreenContainer';
-import { AuthHeader } from '../components/AuthHeader';
-import { AppHeader } from '../components/AppHeader';
-import { BottomNav } from '../components/BottomNav';
-import { useSession } from '../hooks/useSession';
-import { SERVICES, ServiceCategory } from '../services/serviceCatalog';
+import { COLORS, TYPE, SPACING } from '../../constants/theme';
+import { GlassCard } from '../../components/GlassCard';
+import { ScreenContainer } from '../../components/ScreenContainer';
+import { AuthHeader } from '../../components/AuthHeader';
+import { AppHeader } from '../../components/AppHeader';
+import { BottomNav } from '../../components/BottomNav';
+import { useSession } from '../../hooks/useSession';
+import { SERVICES, ServiceCategory } from '../../services/serviceCatalog';
 
 // Guest-accessible service catalog + cost estimator — exploration without an
 // account, per the "Visualizador/Invitado" flow from the product docs.

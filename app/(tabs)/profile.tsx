@@ -2,13 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Switch, Alert } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
 import { Bell, ClipboardCheck, LogOut, Mail, Plus, ShieldCheck } from 'lucide-react-native';
-import { COLORS, RADIUS, SPACING, TYPE } from '../constants/theme';
-import { GlassCard } from '../components/GlassCard';
-import { ScreenContainer } from '../components/ScreenContainer';
-import { AppHeader } from '../components/AppHeader';
-import { BottomNav } from '../components/BottomNav';
-import { useSession } from '../hooks/useSession';
-import { useServiceHistory } from '../hooks/useServiceHistory';
+import { COLORS, RADIUS, SPACING, TYPE } from '../../constants/theme';
+import { GlassCard } from '../../components/GlassCard';
+import { ScreenContainer } from '../../components/ScreenContainer';
+import { AppHeader } from '../../components/AppHeader';
+import { BottomNav } from '../../components/BottomNav';
+import { useSession } from '../../hooks/useSession';
+import { useServiceHistory } from '../../hooks/useServiceHistory';
 import {
   NOTIFICATIONS_SUPPORTED,
   clearMaintenanceNotifications,
@@ -16,9 +16,9 @@ import {
   requestPermission,
   setNotificationsEnabled,
   syncMaintenanceNotifications,
-} from '../services/notifications';
-import { logoutUser } from '../services/authService';
-import { formatPlate, getItvInfo } from '../services/vehicleLookup';
+} from '../../services/notifications';
+import { logoutUser } from '../../services/authService';
+import { formatPlate, getItvInfo } from '../../services/vehicleLookup';
 
 export default function ProfileScreen() {
   const router = useRouter();

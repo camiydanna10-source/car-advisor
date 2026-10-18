@@ -12,6 +12,7 @@ import {
   RefreshCw,
   ExternalLink,
   MessageSquare,
+  Radio,
   ShoppingBag,
 } from 'lucide-react-native';
 import { COLORS, SHADOWS, TYPE, SPACING } from '../constants/theme';
@@ -22,6 +23,13 @@ import { AuthHeader } from '../components/AuthHeader';
 import { AppHeader } from '../components/AppHeader';
 import { BottomNav } from '../components/BottomNav';
 import { useSession } from '../hooks/useSession';
+import { cancelSosAlert, createSosAlert } from '../services/orders';
+import { useSosAlert } from '../hooks/useOrderStatus';
+import { PHONE_ERROR, formatPhone, normalizePhone } from '../services/phone';
+import { setPhone } from '../services/profileStorage';
+import { PhoneField } from '../components/PhoneField';
+import { DispatchPulse } from '../components/DispatchPulse';
+import { ToolCheckIcon } from '../components/ToolCheckIcon';
 import { formatPlate } from '../services/vehicleLookup';
 import { GpsFix, buildMapsUrl, useGpsLocation } from '../hooks/useGpsLocation';
 
@@ -32,6 +40,10 @@ interface ActiveSOS {
   timestamp: string;
   /** GPS fix captured at the moment the request was launched (null if GPS was unavailable). */
   location: GpsFix | null;
+  /** International format; the mechanic can call it. */
+  phone?: string;
+  /** Id of the alert raised for the mechanics, once saved. */
+  alertId?: string;
 }
 
 const GPS_PROBLEM_TEXT: Record<'denied' | 'unavailable' | 'error', string> = {
@@ -61,19 +73,64 @@ export default function RoadsideSOSScreen() {
   const [selectedType, setSelectedType] = useState<EmergencyType>('TOW');
   const [activeSOS, setActiveSOS] = useState<ActiveSOS | null>(null);
   const { status: gpsStatus, fix: gpsFix, refresh: refreshGps } = useGpsLocation();
-  const { status: sessionStatus, user, vehicles } = useSession();
+  const { status: sessionStatus, user, phone: savedPhone, vehicles } = useSession();
+  // null = not typed yet: show the phone saved in the profile.
+  const [phoneInput, setPhoneInput] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState('');
+  const [notSent, setNotSent] = useState(false);
+  const phoneValue = phoneInput ?? (savedPhone ? formatPhone(savedPhone) : '');
   const isClient = sessionStatus === 'authenticated';
   const vehicle = isClient ? vehicles[0] : undefined;
+  const sosAlert = useSosAlert(activeSOS?.alertId);
 
   const handleLaunchSOS = () => {
+    // The mechanic needs a number to call before leaving, so the request cannot be sent without it
+    // (clients with a saved phone get it prefilled, so it costs them nothing).
+    const phone = normalizePhone(phoneValue);
+    if (!phone) {
+      setPhoneError(
+        phoneValue.trim() ? PHONE_ERROR : 'Indica tu teléfono: el mecánico lo necesita para llamarte.'
+      );
+      return;
+    }
+    setPhoneError('');
+    setNotSent(false);
+    if (user && phone !== savedPhone) setPhone(user.email, phone).catch(() => {});
     setActiveSOS({
       type: selectedType,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       location: gpsFix,
+      phone,
     });
+    // The mechanics' panel receives it too (local stand-in until the backend notifies them).
+    createSosAlert({
+      emergency: {
+        type: selectedType,
+        label: EMERGENCY_OPTIONS.find(o => o.type === selectedType)?.label ?? selectedType,
+      },
+      client: { name: user?.name ?? 'Cliente invitado', email: user?.email, phone },
+      vehicle: vehicle
+        ? { plate: vehicle.plate, brand: vehicle.brand, model: vehicle.model, color: vehicle.color }
+        : undefined,
+      location: gpsFix
+        ? {
+            latitude: gpsFix.latitude,
+            longitude: gpsFix.longitude,
+            accuracy: gpsFix.accuracy,
+            address: gpsFix.address ?? null,
+          }
+        : null,
+      mapsUrl: gpsFix ? buildMapsUrl(gpsFix) : null,
+    })
+      .then(created => setActiveSOS(prev => (prev ? { ...prev, alertId: created.id } : prev)))
+      .catch(() => setNotSent(true));
   };
 
-  const cancelSOS = () => setActiveSOS(null);
+  const cancelSOS = () => {
+    // Cancelling also stops the alarm on the mechanics while nobody has accepted it.
+    if (activeSOS?.alertId) cancelSosAlert(activeSOS.alertId).catch(() => {});
+    setActiveSOS(null);
+  };
 
   const emergencyLabel = (type: EmergencyType) =>
     EMERGENCY_OPTIONS.find(o => o.type === type)?.label ?? type;
@@ -95,6 +152,7 @@ export default function RoadsideSOSScreen() {
         ? `🚗 *Vehículo:* ${vehicle.brand} ${vehicle.model} (${formatPlate(vehicle.plate)}) · ${vehicle.color}\n`
         : '') +
       (user ? `👤 *Cliente:* ${user.name ?? user.email}\n` : '') +
+      (activeSOS.phone ? `📞 *Teléfono:* ${formatPhone(activeSOS.phone)}\n` : '') +
       `⚠️ Por favor despachar mecánico de guardia.`;
     Linking.openURL(`https://wa.me/?text=${encodeURIComponent(message)}`).catch(() => {
       Alert.alert('WhatsApp no disponible', 'No se pudo abrir WhatsApp en este dispositivo.');
@@ -181,15 +239,51 @@ export default function RoadsideSOSScreen() {
         {/* Active SOS Tracker */}
         {activeSOS ? (
           <GlassCard variant="alertGlow" style={styles.activeSosCard}>
+            {/* Radar while nobody has accepted; a wrench with a check once a mechanic took it */}
+            <DispatchPulse
+              active={sosAlert?.status !== 'accepted' && sosAlert?.status !== 'completed'}
+              color={sosAlert?.status === 'accepted' || sosAlert?.status === 'completed' ? COLORS.primary : COLORS.tertiary}
+              size={130}
+            >
+              {sosAlert?.status === 'accepted' || sosAlert?.status === 'completed' ? (
+                <ToolCheckIcon size={26} />
+              ) : (
+                <Radio size={26} color="#FFF" />
+              )}
+            </DispatchPulse>
             <View style={styles.statusHeader}>
-              <StatusChip label="DESPACHO EN CURSO" type="warning" />
+              <StatusChip
+                label={
+                  sosAlert?.status === 'completed'
+                    ? 'AUXILIO ATENDIDO'
+                    : sosAlert?.status === 'accepted'
+                      ? 'MECÁNICO ASIGNADO'
+                      : 'DESPACHO EN CURSO'
+                }
+                type={sosAlert?.status === 'completed' ? 'success' : sosAlert?.status === 'accepted' ? 'info' : 'warning'}
+              />
               <Text style={styles.timerText}>{activeSOS.timestamp}</Text>
             </View>
 
-            <Text style={styles.activeTitle}>Mecánico Asignado en Camino</Text>
-            <Text style={styles.activeSub}>
-              Unidad Móvil #4 (Taller Central) • Tiempo estimado de llegada: 14 min.
+            <Text style={styles.activeTitle}>
+              {sosAlert?.status === 'completed'
+                ? 'Auxilio atendido'
+                : sosAlert?.status === 'accepted'
+                  ? 'Mecánico en camino'
+                  : 'Buscando un mecánico de guardia'}
             </Text>
+            <Text style={styles.activeSub}>
+              {sosAlert?.status === 'completed'
+                ? `${sosAlert.mechanic?.name ?? 'El mecánico'} ha dado por terminado tu auxilio.`
+                : sosAlert?.status === 'accepted'
+                ? `${sosAlert.mechanic?.name ?? 'Un mecánico'} ha aceptado tu auxilio, te llamará y va hacia tu ubicación.`
+                : 'Tu aviso está sonando en los mecánicos de guardia. En cuanto uno lo acepte te lo indicamos aquí.'}
+            </Text>
+            {notSent ? (
+              <Text style={styles.activeLocation}>
+                ⚠️ El aviso no llegó a los mecánicos de guardia: avisa a la central por WhatsApp.
+              </Text>
+            ) : null}
             <Text style={styles.activeLocation}>
               {activeSOS.location
                 ? `📍 Enviada a: ${
@@ -212,6 +306,14 @@ export default function RoadsideSOSScreen() {
           </GlassCard>
         ) : (
           <>
+            <PhoneField
+              label="Tu teléfono (obligatorio)"
+              value={phoneValue}
+              onChangeText={setPhoneInput}
+              error={phoneError}
+              hint="El mecánico te llamará a este número para coordinar el auxilio."
+            />
+
             {/* Emergency Category Selector Grid */}
             <Text style={styles.sectionTitle}>Selecciona el Tipo de Emergencia</Text>
             <View style={styles.grid}>

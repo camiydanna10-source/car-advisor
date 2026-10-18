@@ -292,8 +292,8 @@ export default function RegisterVehicleScreen() {
         )}
       </ScreenContainer>
 
-      {/* Barra personalizada integrada */}
-      <BottomNav activeTab="profile" />
+      {/* Only when the client already has a vehicle: during sign-up there is nowhere else to go. */}
+      {flow === 'add' ? <BottomNav /> : null}
     </>
   );
 }

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { ServiceRecord } from '../services/maintenancePlan';
 import { getAllRecords } from '../services/serviceHistoryStorage';
 import { VehicleData } from '../services/vehicleLookup';
@@ -17,16 +18,19 @@ export function useServiceHistory(email: string | undefined, vehicles: VehicleDa
     setState({ loaded: true, byPlate });
   }, [email, plateKey]);
 
-  useEffect(() => {
-    let cancelled = false;
-    if (!email) return;
-    getAllRecords(email, plateKey ? plateKey.split(',') : []).then(byPlate => {
-      if (!cancelled) setState({ loaded: true, byPlate });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [email, plateKey]);
+  // Reloads on every focus (tab screens stay mounted and would otherwise show stale history).
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      if (!email) return;
+      getAllRecords(email, plateKey ? plateKey.split(',') : []).then(byPlate => {
+        if (!cancelled) setState({ loaded: true, byPlate });
+      });
+      return () => {
+        cancelled = true;
+      };
+    }, [email, plateKey])
+  );
 
   return { ...state, reload };
 }

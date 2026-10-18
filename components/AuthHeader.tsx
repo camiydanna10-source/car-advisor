@@ -16,9 +16,9 @@ interface AuthHeaderProps {
 export const AuthHeader: React.FC<AuthHeaderProps> = ({ label, showBack = true }) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { status } = useSession();
+  const { status, role } = useSession();
   // Logged-in clients go back to their home; everyone else to the entry screen.
-  const goHome = () => router.replace(status === 'authenticated' ? '/home' : '/');
+  const goHome = () => router.replace(status !== 'authenticated' ? '/' : role === 'mechanic' ? '/workshop' : '/home');
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>

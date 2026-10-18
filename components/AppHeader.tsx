@@ -2,14 +2,17 @@ import React, { useEffect, useState } from 'react';
 import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Bell, Car, ChevronDown } from 'lucide-react-native';
+import { Bell, Car, ChevronDown, Wrench } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '../constants/theme';
+import { useSession } from '../hooks/useSession';
 
 interface AppHeaderProps {
   /** Name of the logged-in user; its initial is shown in the profile shortcut. */
   userName?: string;
   /** Active vehicle shown as a pill under the logo (home only). */
   vehicleLabel?: string;
+  /** Pill shown instead of the vehicle (mechanic area), e.g. "Modo Mecánico". */
+  modeLabel?: string;
   onVehiclePress?: () => void;
   /** Number of pending maintenance alerts shown as a badge on the bell. */
   alertCount?: number;
@@ -20,12 +23,15 @@ interface AppHeaderProps {
 export const AppHeader: React.FC<AppHeaderProps> = ({
   userName,
   vehicleLabel,
+  modeLabel,
   onVehiclePress,
   alertCount = 0,
   onBellPress,
 }) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { role } = useSession();
+  const homeHref = role === 'mechanic' ? '/workshop' : '/home';
   const initial = userName?.trim().charAt(0).toUpperCase() || '?';
 
   const [pulse] = useState(() => new Animated.Value(1));
@@ -46,13 +52,20 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         <View style={styles.left}>
           <TouchableOpacity
             style={styles.logoRow}
-            onPress={() => router.replace('/home')}
+            onPress={() => router.replace(homeHref)}
             accessibilityRole="button"
             accessibilityLabel="Ir al inicio"
           >
             <Text style={styles.wordmark}>CarAdvisor</Text>
             <Animated.View style={[styles.liveDot, { opacity: pulse }]} />
           </TouchableOpacity>
+
+          {modeLabel ? (
+            <View style={styles.vehiclePill}>
+              <Wrench size={13} color={COLORS.primary} />
+              <Text style={styles.vehicleText} numberOfLines={1}>{modeLabel}</Text>
+            </View>
+          ) : null}
 
           {vehicleLabel ? (
             <TouchableOpacity

@@ -2,14 +2,23 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { usePathname, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AlertOctagon, History, Home, ShoppingBag, User } from 'lucide-react-native';
+import { AlertOctagon, ClipboardList, History, Home, ShoppingBag, User } from 'lucide-react-native';
 import { COLORS, SHADOWS } from '../constants/theme';
+import { useSession } from '../hooks/useSession';
+import { useOpenSosCount } from '../hooks/useWorkshop';
 
-const ITEMS = [
+const CLIENT_ITEMS = [
   { label: 'Inicio', href: '/home', icon: Home },
   { label: 'Servicios', href: '/catalog', icon: ShoppingBag },
   { label: 'SOS', href: '/sos', icon: AlertOctagon, emergency: true },
   { label: 'Cronología', href: '/timeline', icon: History },
+  { label: 'Perfil', href: '/profile', icon: User },
+] as const;
+
+// The mechanic has two separate inboxes: scheduled services and SOS roadside alerts.
+const MECHANIC_ITEMS = [
+  { label: 'Servicios', href: '/workshop', icon: ClipboardList },
+  { label: 'SOS', href: '/workshop-sos', icon: AlertOctagon, emergency: true },
   { label: 'Perfil', href: '/profile', icon: User },
 ] as const;
 
@@ -19,12 +28,16 @@ export const BottomNav: React.FC = () => {
   const router = useRouter();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
+  const { role, user } = useSession();
+  const sosCount = useOpenSosCount(user?.email, role === 'mechanic');
+  const items = role === 'mechanic' ? MECHANIC_ITEMS : CLIENT_ITEMS;
 
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom + 8 }]}>
-      {ITEMS.map(item => {
+      {items.map(item => {
         const Icon = item.icon;
-        const active = pathname === item.href;
+        const active =
+          pathname === item.href || (item.href === '/workshop' && pathname === '/workshop-order');
         const emergency = 'emergency' in item && item.emergency;
         return (
           <TouchableOpacity
@@ -38,6 +51,11 @@ export const BottomNav: React.FC = () => {
             {emergency ? (
               <View style={[styles.sosBadge, active && styles.sosBadgeActive]}>
                 <Icon size={26} color="#FFF" />
+                {role === 'mechanic' && sosCount > 0 ? (
+                  <View style={styles.countBadge}>
+                    <Text style={styles.countText}>{sosCount}</Text>
+                  </View>
+                ) : null}
               </View>
             ) : (
               <Icon size={22} color={active ? COLORS.primary : COLORS.onSurfaceVariant} />
@@ -92,6 +110,23 @@ const styles = StyleSheet.create({
     borderWidth: 4,
     borderColor: COLORS.background,
     ...SHADOWS.sos,
+  },
+  countBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 5,
+    backgroundColor: COLORS.error,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  countText: {
+    color: '#690005',
+    fontSize: 11,
+    fontWeight: '800',
   },
   sosBadgeActive: {
     borderColor: 'rgba(255, 255, 255, 0.35)',

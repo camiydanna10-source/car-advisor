@@ -45,6 +45,13 @@ export const DEV_ROUTE_GROUPS: DevRouteGroup[] = [
     ],
   },
   {
+    title: 'Zona del mecánico (requiere sesión de mecánico)',
+    routes: [
+      { label: 'Bandeja de servicios', description: 'Órdenes programadas (clientes registrados primero)', href: '/workshop' },
+      { label: 'Bandeja SOS', description: 'Guardia, alertas de auxilio y atención', href: '/workshop-sos' },
+    ],
+  },
+  {
     title: 'Modo invitado (sin registro)',
     routes: [
       { label: 'Asistencia SOS', description: 'GPS + tipo de emergencia', href: '/sos' },

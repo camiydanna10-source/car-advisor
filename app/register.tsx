@@ -12,6 +12,9 @@ import { useRouter } from 'expo-router';
 import { User, Mail, Lock, ArrowRight, ShieldCheck, Eye, EyeOff } from 'lucide-react-native';
 import { COLORS } from '../constants/theme';
 import { registerUser } from '../services/authService';
+import { PHONE_ERROR, normalizePhone } from '../services/phone';
+import { setPhone as savePhone } from '../services/profileStorage';
+import { PhoneField } from '../components/PhoneField';
 import { GlassCard } from '../components/GlassCard';
 import { AuthHeader } from '../components/AuthHeader';
 
@@ -20,6 +23,7 @@ export default function RegisterScreen() {
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -28,8 +32,13 @@ export default function RegisterScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleRegister = async () => {
-    if (!name.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
+    if (!name.trim() || !email.trim() || !phone.trim() || !password.trim() || !confirmPassword.trim()) {
       setErrorMsg('Por favor completa todos los campos.');
+      return;
+    }
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone) {
+      setErrorMsg(PHONE_ERROR);
       return;
     }
     if (password !== confirmPassword) {
@@ -45,6 +54,8 @@ export default function RegisterScreen() {
     setIsLoading(true);
     try {
       await registerUser({ name, email, password });
+      // The register endpoint does not take the phone yet: keep it on the device (see the commit notes).
+      await savePhone(email, normalizedPhone);
       router.replace({ pathname: '/register-vehicle', params: { name: name.trim() } });
     } catch (err: any) {
       setErrorMsg(err.message || 'Error al registrar usuario');
@@ -108,6 +119,12 @@ export default function RegisterScreen() {
               />
             </View>
           </View>
+
+          <PhoneField
+            value={phone}
+            onChangeText={setPhone}
+            hint="Para que el mecánico pueda llamarte o escribirte por WhatsApp."
+          />
 
           {/* Password Field */}
           <View style={styles.inputGroup}>

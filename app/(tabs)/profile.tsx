@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Switch, Alert } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
-import { Bell, ClipboardCheck, LogOut, Mail, Plus, ShieldCheck } from 'lucide-react-native';
+import { Bell, ClipboardCheck, LogOut, Mail, Phone, Plus, ShieldCheck } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING, TYPE } from '../../constants/theme';
 import { GlassCard } from '../../components/GlassCard';
 import { ScreenContainer } from '../../components/ScreenContainer';
@@ -9,6 +9,9 @@ import { AppHeader } from '../../components/AppHeader';
 import { BottomNav } from '../../components/BottomNav';
 import { useSession } from '../../hooks/useSession';
 import { useServiceHistory } from '../../hooks/useServiceHistory';
+import { PhoneField } from '../../components/PhoneField';
+import { PHONE_ERROR, formatPhone, normalizePhone } from '../../services/phone';
+import { setPhone } from '../../services/profileStorage';
 import {
   NOTIFICATIONS_SUPPORTED,
   clearMaintenanceNotifications,
@@ -22,9 +25,13 @@ import { formatPlate, getItvInfo } from '../../services/vehicleLookup';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { status, user, vehicles } = useSession();
+  const { status, role, user, phone, vehicles, refresh } = useSession();
+  const isMechanic = role === 'mechanic';
   const [loggingOut, setLoggingOut] = useState(false);
   const [remindersOn, setRemindersOn] = useState(false);
+  // null = not editing the phone
+  const [phoneDraft, setPhoneDraft] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState('');
   const history = useServiceHistory(user?.email, vehicles);
 
   useEffect(() => {
@@ -63,6 +70,18 @@ export default function ProfileScreen() {
     await syncMaintenanceNotifications(user.email, vehicles, history.byPlate);
   };
 
+  const savePhone = async () => {
+    const normalized = normalizePhone(phoneDraft ?? '');
+    if (!user || !normalized) {
+      setPhoneError(PHONE_ERROR);
+      return;
+    }
+    await setPhone(user.email, normalized);
+    setPhoneDraft(null);
+    setPhoneError('');
+    await refresh();
+  };
+
   const handleLogout = async () => {
     setLoggingOut(true);
     await clearMaintenanceNotifications();
@@ -86,65 +105,118 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Vehicles */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Mis vehículos</Text>
-          <Text style={styles.sectionCount}>{vehicles.length}</Text>
-        </View>
-        <View style={styles.vehicleList}>
-          {vehicles.map(vehicle => {
-            const itv = getItvInfo(vehicle, history.byPlate[vehicle.plate] ?? []);
-            return (
-              <GlassCard key={vehicle.plate} style={styles.vehicleCard}>
-                <View style={styles.vehicleTop}>
-                  <Text style={styles.vehicleName}>{vehicle.brand} {vehicle.model}</Text>
-                  <View style={styles.plateChip}>
-                    <Text style={styles.plateText}>{formatPlate(vehicle.plate)}</Text>
+        {!isMechanic ? (
+          <GlassCard style={styles.accountCard}>
+            {phoneDraft === null ? (
+              <View style={styles.accountRow}>
+                <Phone size={18} color={COLORS.primary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.switchTitle}>Teléfono de contacto</Text>
+                  <Text style={styles.accountText}>
+                    {phone ? formatPhone(phone) : 'Sin teléfono: el mecánico no podrá llamarte.'}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => setPhoneDraft(phone ? formatPhone(phone) : '')}>
+                  <Text style={styles.phoneLink}>{phone ? 'Cambiar' : 'Añadir'}</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={{ gap: 10 }}>
+                <PhoneField value={phoneDraft} onChangeText={setPhoneDraft} error={phoneError} />
+                <View style={styles.phoneActions}>
+                  <TouchableOpacity
+                    style={styles.phoneCancel}
+                    onPress={() => {
+                      setPhoneDraft(null);
+                      setPhoneError('');
+                    }}
+                  >
+                    <Text style={styles.phoneCancelText}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.phoneSave} onPress={savePhone}>
+                    <Text style={styles.phoneSaveText}>Guardar</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </GlassCard>
+        ) : null}
+
+        {!isMechanic ? (
+          <>
+          {/* Vehicles */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Mis vehículos</Text>
+            <Text style={styles.sectionCount}>{vehicles.length}</Text>
+          </View>
+          <View style={styles.vehicleList}>
+            {vehicles.map(vehicle => {
+              const itv = getItvInfo(vehicle, history.byPlate[vehicle.plate] ?? []);
+              return (
+                <GlassCard key={vehicle.plate} style={styles.vehicleCard}>
+                  <View style={styles.vehicleTop}>
+                    <Text style={styles.vehicleName}>{vehicle.brand} {vehicle.model}</Text>
+                    <View style={styles.plateChip}>
+                      <Text style={styles.plateText}>{formatPlate(vehicle.plate)}</Text>
+                    </View>
                   </View>
-                </View>
-                <Text style={styles.vehicleMeta}>
-                  {vehicle.year} · {vehicle.motor} · {vehicle.color} · {vehicle.mileage.toLocaleString('es-ES')} km
-                </Text>
-                <View style={styles.itvRow}>
-                  <ClipboardCheck size={14} color={COLORS.primary} />
-                  <Text style={styles.itvText}>{itv.summary}</Text>
-                </View>
-              </GlassCard>
-            );
-          })}
-        </View>
-        <TouchableOpacity
-          style={styles.addBtn}
-          onPress={() =>
-            router.push({ pathname: '/register-vehicle', params: { name: user?.name ?? '', mode: 'add' } })
-          }
-        >
-          <Plus size={16} color={COLORS.primary} />
-          <Text style={styles.addBtnText}>Añadir otro vehículo</Text>
-        </TouchableOpacity>
+                  <Text style={styles.vehicleMeta}>
+                    {vehicle.year} · {vehicle.motor} · {vehicle.color} · {vehicle.mileage.toLocaleString('es-ES')} km
+                  </Text>
+                  <View style={styles.itvRow}>
+                    <ClipboardCheck size={14} color={COLORS.primary} />
+                    <Text style={styles.itvText}>{itv.summary}</Text>
+                  </View>
+                </GlassCard>
+              );
+            })}
+          </View>
+          <TouchableOpacity
+            style={styles.addBtn}
+            onPress={() =>
+              router.push({ pathname: '/register-vehicle', params: { name: user?.name ?? '', mode: 'add' } })
+            }
+          >
+            <Plus size={16} color={COLORS.primary} />
+            <Text style={styles.addBtnText}>Añadir otro vehículo</Text>
+          </TouchableOpacity>
+  
+          </>
+        ) : (
+          <GlassCard style={styles.accountCard}>
+            <View style={styles.accountRow}>
+              <ShieldCheck size={18} color={COLORS.primary} />
+              <Text style={styles.accountText}>
+                Cuenta de mecánico: gestionas tus órdenes y alertas SOS desde el panel de órdenes.
+              </Text>
+            </View>
+          </GlassCard>
+        )}
 
         {/* Account */}
         <Text style={[styles.sectionTitle, { marginTop: SPACING.lg }]}>Cuenta</Text>
-        <GlassCard style={styles.accountCard}>
-          <View style={styles.accountRow}>
-            <Bell size={18} color={COLORS.primary} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.switchTitle}>Avisos de mantenimiento</Text>
-              <Text style={styles.accountText}>
-                {NOTIFICATIONS_SUPPORTED
-                  ? 'ITV, cambio de aceite y revisiones, según tu cronología.'
-                  : 'No disponible en web ni en Expo Go de Android; funciona en la app instalada.'}
-              </Text>
+        {!isMechanic ? (
+          <GlassCard style={styles.accountCard}>
+            <View style={styles.accountRow}>
+              <Bell size={18} color={COLORS.primary} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.switchTitle}>Avisos de mantenimiento</Text>
+                <Text style={styles.accountText}>
+                  {NOTIFICATIONS_SUPPORTED
+                    ? 'ITV, cambio de aceite y revisiones, según tu cronología.'
+                    : 'No disponible en web ni en Expo Go de Android; funciona en la app instalada.'}
+                </Text>
+              </View>
+              <Switch
+                value={remindersOn}
+                onValueChange={toggleReminders}
+                disabled={!NOTIFICATIONS_SUPPORTED}
+                trackColor={{ false: COLORS.surfaceContainerHighest, true: COLORS.primaryContainer }}
+                thumbColor={remindersOn ? COLORS.primary : COLORS.outline}
+              />
             </View>
-            <Switch
-              value={remindersOn}
-              onValueChange={toggleReminders}
-              disabled={!NOTIFICATIONS_SUPPORTED}
-              trackColor={{ false: COLORS.surfaceContainerHighest, true: COLORS.primaryContainer }}
-              thumbColor={remindersOn ? COLORS.primary : COLORS.outline}
-            />
-          </View>
-        </GlassCard>
+          </GlassCard>
+        ) : null}
         <GlassCard style={styles.accountCard}>
           <View style={styles.accountRow}>
             <ShieldCheck size={18} color={COLORS.success} />
@@ -304,6 +376,41 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+  },
+  phoneLink: {
+    color: COLORS.primary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  phoneActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  phoneCancel: {
+    flex: 1,
+    height: 44,
+    borderRadius: RADIUS.DEFAULT,
+    backgroundColor: COLORS.surfaceContainerHigh,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  phoneCancelText: {
+    color: COLORS.onSurface,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  phoneSave: {
+    flex: 1.4,
+    height: 44,
+    borderRadius: RADIUS.DEFAULT,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  phoneSaveText: {
+    color: COLORS.onPrimary,
+    fontSize: 13,
+    fontWeight: '800',
   },
   switchTitle: {
     color: COLORS.onSurface,

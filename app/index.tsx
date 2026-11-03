@@ -12,7 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Mail, Lock, Key, ArrowRight, ShieldAlert, Fingerprint, Eye, EyeOff } from 'lucide-react-native';
 import { COLORS } from '../constants/theme';
-import { loginUser } from '../services/authService';
+import { loginUser, normalizeRole } from '../services/authService';
 import { getVehicles } from '../services/vehicleStorage';
 import { GlassCard } from '../components/GlassCard';
 import { AuthHeader } from '../components/AuthHeader';
@@ -26,25 +26,38 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async () => {
-  if (!email || !password) {
-    setErrorMsg('Por favor ingresa tu correo y contraseña.');
-    return;
-  }
+    if (!email || !password) {
+      setErrorMsg('Por favor ingresa tu correo y contraseña.');
+      return;
+    }
 
-  setErrorMsg('');
-  setIsLoading(true);
+    setErrorMsg('');
+    setIsLoading(true);
 
-  try {
-    const response = await loginUser({ email, password });
-    
-    // Redirigir directamente al perfil del usuario
-    router.replace('/profile');
-  } catch (err: any) {
-    setErrorMsg(err.message || 'Error al iniciar sesión');
-  } finally {
-    setIsLoading(false);
-  }
-};
+    try {
+      const response = await loginUser({ email, password });
+
+      // Mechanics go to the workshop panel. A client must have at least one registered vehicle:
+      // with one they go to their home, without one they are asked to complete it first.
+      if (normalizeRole(response.role) === 'mechanic') {
+        router.replace('/workshop');
+        return;
+      }
+      const vehicles = await getVehicles(response.email);
+      if (vehicles.length > 0) {
+        router.replace('/home');
+      } else {
+        router.replace({
+          pathname: '/register-vehicle',
+          params: { name: response.name ?? '', mode: 'complete' },
+        });
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Error al iniciar sesión');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleGuestSOS = () => {
     router.push('/sos');

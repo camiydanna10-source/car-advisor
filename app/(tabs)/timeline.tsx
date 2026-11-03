@@ -94,7 +94,7 @@ const parseTypedDate = (text: string) => {
 
 export default function TimelineScreen() {
   const router = useRouter();
-  const { status, user, vehicles, refresh } = useSession();
+  const { status, role, user, vehicles, refresh } = useSession();
   const history = useServiceHistory(user?.email, vehicles);
   useNotificationSync(user?.email, vehicles, history.byPlate, history.loaded);
 
@@ -114,6 +114,7 @@ export default function TimelineScreen() {
     );
   }
   if (status === 'guest') return <Redirect href="/" />;
+  if (role === 'mechanic') return <Redirect href="/workshop" />;
   if (vehicles.length === 0) {
     return (
       <Redirect

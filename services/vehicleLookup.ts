@@ -35,7 +35,7 @@ type VehicleRecord = Omit<VehicleData, 'plate'>;
 
 // DEMO DATA — there is no public registry API (DGT access is restricted to public
 // administrations). `lookupVehicle` is the single place to swap for a real
-// provider (MyCarPlate / APIVehículo / InfoCoche) once a backend proxy exists.
+// provider (e.g. Zyla Spain License Plate Lookup or Openapi Spanish Car Check) once a backend proxy exists.
 const MOCK_VEHICLE_DB: Record<string, VehicleRecord> = {
   '9876KMT': {
     brand: 'Mazda', model: 'CX-5 Touring', year: 2023, motor: 'Híbrido (ECO)',

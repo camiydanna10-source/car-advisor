@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
 import { usePathname, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import { AlertOctagon, BellOff } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '../constants/theme';
 import { getToken, getUserInfo } from '../services/authService';
@@ -11,18 +10,31 @@ import { SosAlert, getShiftActive, listSosAlerts, onWorkshopChange } from '../se
 const POLL_MS = 3000;
 const SIREN = require('../assets/sounds/sos-alarm.wav');
 
-// Plays the siren and vibrates for as long as it is mounted.
+// Plays the siren and vibrates for as long as it is mounted. expo-audio is loaded lazily: if the
+// native module is missing (an older Expo Go, a build without it) the vibration still alerts and the
+// rest of the app keeps working instead of crashing at startup.
 const AlarmPlayer: React.FC = () => {
   useEffect(() => {
-    setAudioModeAsync({ playsInSilentMode: true, interruptionMode: 'duckOthers' }).catch(() => {});
-    // Created here (not with the hook) so the siren exists only while the alarm is sounding.
-    const player = createAudioPlayer(SIREN);
-    player.loop = true;
-    player.play();
+    let cancelled = false;
+    let stopSiren = () => {};
+    import('expo-audio')
+      .then(({ createAudioPlayer, setAudioModeAsync }) => {
+        if (cancelled) return;
+        setAudioModeAsync({ playsInSilentMode: true, interruptionMode: 'duckOthers' }).catch(() => {});
+        // Created here (not with the hook) so the siren exists only while the alarm is sounding.
+        const player = createAudioPlayer(SIREN);
+        player.loop = true;
+        player.play();
+        stopSiren = () => {
+          player.pause();
+          player.remove();
+        };
+      })
+      .catch(() => {});
     Vibration.vibrate([0, 700, 500], true);
     return () => {
-      player.pause();
-      player.remove();
+      cancelled = true;
+      stopSiren();
       Vibration.cancel();
     };
   }, []);

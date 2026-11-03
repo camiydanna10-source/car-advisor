@@ -30,6 +30,7 @@ import { SuggestionCard } from '../../components/SuggestionCard';
 import { useSession } from '../../hooks/useSession';
 import { useServiceHistory } from '../../hooks/useServiceHistory';
 import { useNotificationSync } from '../../hooks/useNotificationSync';
+import { useClientOrders } from '../../hooks/useOrderStatus';
 import { RECORD_LABEL, formatDate } from '../../services/maintenancePlan';
 import { SERVICES } from '../../services/serviceCatalog';
 import { colorHex, formatPlate, getItvInfo, suggestServices } from '../../services/vehicleLookup';
@@ -39,11 +40,12 @@ import { setActiveVehicle } from '../../services/vehicleStorage';
 // registry fields, ITV status derived from its year, and rule-based service suggestions.
 export default function HomeScreen() {
   const router = useRouter();
-  const { status, user, vehicles, refresh } = useSession();
+  const { status, role, user, vehicles, refresh } = useSession();
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const history = useServiceHistory(user?.email, vehicles);
   useNotificationSync(user?.email, vehicles, history.byPlate, history.loaded);
+  const clientOrders = useClientOrders(user?.email);
 
   if (status === 'loading') {
     return (
@@ -53,6 +55,7 @@ export default function HomeScreen() {
     );
   }
   if (status === 'guest') return <Redirect href="/" />;
+  if (role === 'mechanic') return <Redirect href="/workshop" />;
   if (vehicles.length === 0) {
     return (
       <Redirect
@@ -62,12 +65,13 @@ export default function HomeScreen() {
   }
 
   const vehicle = vehicles[0];
+  const activeOrder = (clientOrders ?? []).find(o => o.status === 'pending' || o.status === 'in_progress');
   const records = history.byPlate[vehicle.plate] ?? [];
   const itv = getItvInfo(vehicle, records);
   const suggestions = suggestServices(vehicle, records);
   const lastService = [...records]
     .filter(r => r.type !== 'odometer')
-    .sort((a, b) => (a.date < b.date ? 1 : -1))[0];
+    .sort((a, b) => (a.date === b.date ? b.km - a.km : a.date < b.date ? 1 : -1))[0];
   const itvTitle = {
     overdue: 'ITV vencida',
     soon: 'Pre-ITV recomendada',
@@ -107,6 +111,42 @@ export default function HomeScreen() {
         onBellPress={() => setAlertsOpen(true)}
       />
       <ScreenContainer contentContainerStyle={styles.content}>
+        {/* Request in progress */}
+        {activeOrder ? (
+          <FadeInView>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => router.push({ pathname: '/order-status', params: { id: activeOrder.id } })}
+            >
+              <GlassCard
+                variant={activeOrder.status === 'pending' ? 'alertGlow' : 'primaryGlow'}
+                style={styles.activeOrder}
+              >
+                <View
+                  style={[
+                    styles.activeDot,
+                    { backgroundColor: activeOrder.status === 'pending' ? COLORS.tertiary : COLORS.primary },
+                  ]}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.activeLabel}>
+                    {activeOrder.status === 'pending' ? 'DESPACHO EN CURSO' : 'EN EL TALLER'}
+                  </Text>
+                  <Text style={styles.activeTitle} numberOfLines={1}>
+                    {activeOrder.service.title}
+                  </Text>
+                  <Text style={styles.activeSub}>
+                    {activeOrder.status === 'pending'
+                      ? 'Esperando confirmación de un mecánico'
+                      : `${activeOrder.mechanic?.name ?? 'Mecánico'} · ${activeOrder.code}`}
+                  </Text>
+                </View>
+                <ChevronRight size={16} color={COLORS.onSurfaceVariant} />
+              </GlassCard>
+            </TouchableOpacity>
+          </FadeInView>
+        ) : null}
+
         {/* Hero: linked vehicle */}
         <FadeInView>
           <GlassCard style={styles.hero}>
@@ -362,6 +402,34 @@ const styles = StyleSheet.create({
   },
   content: {
     gap: SPACING.md,
+  },
+  // Request in progress
+  activeOrder: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  activeDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  activeLabel: {
+    ...TYPE.labelSm,
+    color: COLORS.tertiary,
+    letterSpacing: 0.8,
+    fontWeight: '800',
+  },
+  activeTitle: {
+    color: COLORS.onSurface,
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 1,
+  },
+  activeSub: {
+    color: COLORS.onSurfaceVariant,
+    fontSize: 11,
+    marginTop: 1,
   },
   // Hero
   hero: {

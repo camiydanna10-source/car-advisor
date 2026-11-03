@@ -18,10 +18,18 @@ export interface LoginData {
   password: string;
 }
 
+export type UserRole = 'client' | 'mechanic';
+
+// The backend stores the role as e.g. "ROLE_USER" / "ROLE_MECHANIC" (see the commit notes: the
+// login response has to return it). Anything that is not a mechanic is treated as a client.
+export const normalizeRole = (raw?: string | null): UserRole =>
+  raw && /MECHANIC/i.test(raw) ? 'mechanic' : 'client';
+
 export interface AuthResponse {
   token: string;
   email: string;
   name?: string;
+  role?: string;
 }
 
 // Helpers para compatibilidad entre Web (localStorage) y Móvil (SecureStore)
@@ -51,12 +59,13 @@ const removeStorageItem = async (key: string): Promise<void> => {
 export interface SessionUser {
   name?: string;
   email: string;
+  role?: UserRole;
 }
 
 // Guarda token + datos del usuario (usado por login, registro y la sesión demo del menú DEV).
 export const persistSession = async (token: string, user: SessionUser): Promise<void> => {
   await setStorageItem(TOKEN_KEY, token);
-  await setStorageItem(USER_KEY, JSON.stringify({ name: user.name, email: user.email }));
+  await setStorageItem(USER_KEY, JSON.stringify({ name: user.name, email: user.email, role: user.role ?? 'client' }));
 };
 
 // Iniciar Sesión
@@ -79,7 +88,11 @@ export const loginUser = async (data: LoginData): Promise<AuthResponse> => {
 
     // Guardar el token en el almacenamiento seguro/web
     if (result.token) {
-      await persistSession(result.token, { name: result.name, email: result.email });
+      await persistSession(result.token, {
+        name: result.name,
+        email: result.email,
+        role: normalizeRole(result.role),
+      });
     }
 
     return result;
@@ -108,7 +121,11 @@ export const registerUser = async (data: RegisterData): Promise<AuthResponse> =>
 
     // Guardar el token si el registro inicia sesión automáticamente
     if (result.token) {
-      await persistSession(result.token, { name: result.name, email: result.email });
+      await persistSession(result.token, {
+        name: result.name,
+        email: result.email,
+        role: normalizeRole(result.role),
+      });
     }
 
     return result;

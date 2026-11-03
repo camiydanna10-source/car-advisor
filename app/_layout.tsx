@@ -7,6 +7,7 @@ import { useFonts, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-goog
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import { COLORS } from '../constants/theme';
 import { DevMenu } from '../components/DevMenu';
+import { SosAlarm } from '../components/SosAlarm';
 import { configureNotifications, listenForReminderTaps } from '../services/notifications';
 
 SplashScreen.preventAutoHideAsync();
@@ -46,6 +47,7 @@ export default function RootLayout() {
           animation: 'fade',
         }}
       />
+      <SosAlarm />
       <DevMenu />
     </SafeAreaProvider>
   );

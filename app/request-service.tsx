@@ -5,7 +5,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Alert,
+  TextInput,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -26,6 +26,10 @@ import { ScreenContainer } from '../components/ScreenContainer';
 import { AuthHeader } from '../components/AuthHeader';
 import { PlateInput } from '../components/PlateInput';
 import { useSession } from '../hooks/useSession';
+import { createOrder } from '../services/orders';
+import { PHONE_ERROR, formatPhone, normalizePhone } from '../services/phone';
+import { setPhone } from '../services/profileStorage';
+import { PhoneField } from '../components/PhoneField';
 import {
   VehicleData,
   formatPlate,
@@ -36,7 +40,7 @@ import {
 
 export default function RequestServiceScreen() {
   const router = useRouter();
-  const { status: sessionStatus, vehicles } = useSession();
+  const { status: sessionStatus, user, phone: savedPhone, vehicles } = useSession();
   const myVehicle = sessionStatus === 'authenticated' ? vehicles[0] : undefined;
   const params = useLocalSearchParams<{
     serviceTitle?: string;
@@ -51,6 +55,12 @@ export default function RequestServiceScreen() {
   const [vehicle, setVehicle] = useState<VehicleData | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [isConfirming, setIsConfirming] = useState(false);
+  // null = the client has not typed yet: show the phone saved in their profile.
+  const [phoneInput, setPhoneInput] = useState<string | null>(null);
+  const phoneValue = phoneInput ?? (savedPhone ? formatPhone(savedPhone) : '');
+  const [guestName, setGuestName] = useState('');
+  const [nameError, setNameError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
 
   const requiredPart = vehicle ? getRequiredPart(vehicle, serviceTitle) : null;
 
@@ -87,19 +97,38 @@ export default function RequestServiceScreen() {
     };
   }, [params.plate]);
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
+    if (!vehicle) return;
+    const phone = normalizePhone(phoneValue);
+    setNameError('');
+    setPhoneError('');
+    if (!user && !guestName.trim()) {
+      setNameError('Indica tu nombre para que el mecánico sepa a quién llamar.');
+      return;
+    }
+    if (!phone) {
+      setPhoneError(PHONE_ERROR);
+      return;
+    }
     setIsConfirming(true);
-    setTimeout(() => {
+    let orderId: string | undefined;
+    try {
+      // Prefer the client's saved vehicle: it carries the latest odometer reading.
+      const snapshot = vehicles.find(v => v.plate === vehicle.plate) ?? vehicle;
+      const order = await createOrder({
+        client: { name: user?.name ?? guestName.trim(), email: user?.email, phone },
+        vehicle: snapshot,
+        service: { title: serviceTitle, price: servicePrice ? Number(servicePrice) : undefined },
+      });
+      orderId = order.id;
+      if (user && phone !== savedPhone) await setPhone(user.email, phone);
+    } catch {
+      setErrorMsg('No se pudo enviar la solicitud. Inténtalo de nuevo.');
+    } finally {
       setIsConfirming(false);
-      const partLine = requiredPart
-        ? `\n\nPieza preparada: ${requiredPart.items[0].v}`
-        : '';
-      Alert.alert(
-        '¡Servicio solicitado!',
-        `${serviceTitle} agendado para ${vehicle?.brand} ${vehicle?.model} (${plate.toUpperCase()}).${partLine}\n\nUn asesor te contactará para confirmar la cita.`,
-        [{ text: 'Entendido', onPress: () => router.replace(myVehicle ? '/home' : '/catalog') }]
-      );
-    }, 1000);
+    }
+    // "Despacho en curso": wait for a mechanic to confirm and follow the order from there.
+    if (orderId) router.replace({ pathname: '/order-status', params: { id: orderId } });
   };
 
   return (
@@ -151,7 +180,7 @@ export default function RequestServiceScreen() {
             </TouchableOpacity>
           ) : null}
 
-          {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
+          {errorMsg && !vehicle ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
 
           <TouchableOpacity style={styles.lookupBtn} onPress={handleLookup} disabled={isLooking}>
             {isLooking ? (
@@ -233,7 +262,35 @@ export default function RequestServiceScreen() {
           </GlassCard>
         )}
 
+        {/* Contact: the mechanic calls or writes to this number */}
+        {vehicle && (
+          <GlassCard style={styles.card}>
+            <Text style={styles.partHeaderText}>Datos de contacto</Text>
+            {!user ? (
+              <View style={styles.guestField}>
+                <Text style={styles.guestLabel}>Nombre</Text>
+                <TextInput
+                  style={styles.guestInput}
+                  value={guestName}
+                  onChangeText={setGuestName}
+                  placeholder="Tu nombre"
+                  placeholderTextColor={COLORS.outline}
+                  autoComplete="name"
+                />
+                {nameError ? <Text style={styles.guestError}>{nameError}</Text> : null}
+              </View>
+            ) : null}
+            <PhoneField
+              value={phoneValue}
+              onChangeText={setPhoneInput}
+              hint="El mecánico te llamará o te escribirá por WhatsApp a este número para confirmar la cita."
+              error={phoneError}
+            />
+          </GlassCard>
+        )}
+
         {/* Confirm CTA */}
+        {vehicle && errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
         {vehicle && (
           <TouchableOpacity
             style={[styles.confirmBtn, SHADOWS.glass]}
@@ -257,6 +314,28 @@ export default function RequestServiceScreen() {
 }
 
 const styles = StyleSheet.create({
+  guestField: {
+    gap: 6,
+  },
+  guestLabel: {
+    ...TYPE.labelSm,
+    color: COLORS.onSurfaceVariant,
+    letterSpacing: 0.6,
+  },
+  guestInput: {
+    height: 48,
+    borderRadius: RADIUS.DEFAULT,
+    backgroundColor: COLORS.surfaceContainerLow,
+    borderWidth: 1,
+    borderColor: COLORS.outlineVariant,
+    paddingHorizontal: 14,
+    color: COLORS.onSurface,
+    fontSize: 15,
+  },
+  guestError: {
+    color: COLORS.error,
+    fontSize: 12,
+  },
   headerBox: {
     marginBottom: SPACING.md,
   },

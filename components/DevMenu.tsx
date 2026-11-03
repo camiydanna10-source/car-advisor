@@ -10,20 +10,33 @@ import { getUserInfo, logoutUser, persistSession } from '../services/authService
 import { addMonths, toISODate } from '../services/maintenancePlan';
 import { addRecord, clearRecords } from '../services/serviceHistoryStorage';
 import { clearMaintenanceNotifications } from '../services/notifications';
+import {
+  acceptOrder,
+  acceptSosAlert,
+  clearOrdersAndAlerts,
+  createOrder,
+  createSosAlert,
+  listOrders,
+  listSosAlerts,
+} from '../services/orders';
 import { lookupVehicle } from '../services/vehicleLookup';
+import { setPhone } from '../services/profileStorage';
 import { getVehicles, saveVehicle } from '../services/vehicleStorage';
 
 const DEMO_USER = { name: 'Carlos Sainz', email: 'carlos.demo@caradvisor.dev' };
+// Obviously fake number, only for the demo session.
+const DEMO_PHONE = '+34600123456';
 
 // Session helpers for the dev menu. The token is a placeholder (NOT a real JWT): it only lets
 // the logged-in screens be reached without a running backend.
-const DEV_ACTIONS: { label: string; description: string; run: () => Promise<string> }[] = [
+const DEV_ACTIONS: { label: string; description: string; run: () => Promise<string | null> }[] = [
   {
     label: 'Cargar sesión demo con vehículo',
     description: 'Carlos Sainz + Mazda CX-5 (9876KMT) guardados en este dispositivo',
     run: async () => {
       await persistSession('dev-token', DEMO_USER);
       await saveVehicle(DEMO_USER.email, await lookupVehicle('9876KMT'));
+      await setPhone(DEMO_USER.email, DEMO_PHONE);
       return '/home';
     },
   },
@@ -63,6 +76,75 @@ const DEV_ACTIONS: { label: string; description: string; run: () => Promise<stri
     },
   },
   {
+    label: 'Cargar sesión demo mecánico',
+    description: 'Luis Herrera (mecánico): panel de órdenes y alertas SOS',
+    run: async () => {
+      await persistSession('dev-token', { name: 'Luis Herrera', email: 'luis.mecanico@caradvisor.dev', role: 'mechanic' });
+      return '/workshop';
+    },
+  },
+  {
+    label: 'Crear orden de prueba',
+    description: 'Cambio de aceite para el Mazda CX-5 de Carlos Sainz (pendiente de aceptar)',
+    run: async () => {
+      const vehicle = await lookupVehicle('9876KMT');
+      await createOrder({
+        client: { name: 'Carlos Sainz', email: DEMO_USER.email, phone: DEMO_PHONE },
+        vehicle,
+        service: { title: 'Cambio de Aceite & Filtros', price: 180 },
+      });
+      return '/workshop';
+    },
+  },
+  {
+    label: 'Crear alerta SOS de prueba',
+    description: 'Pinchazo en Madrid (Puerta del Sol) con ubicación GPS de ejemplo',
+    run: async () => {
+      await createSosAlert({
+        emergency: { type: 'TIRE', label: 'Neumático Ponchado' },
+        client: { name: 'Carlos Sainz', email: DEMO_USER.email, phone: DEMO_PHONE },
+        vehicle: { plate: '9876KMT', brand: 'Mazda', model: 'CX-5 Touring', color: 'Gris Titanio' },
+        location: { latitude: 40.4168, longitude: -3.7038, accuracy: 12, address: 'Puerta del Sol, Madrid' },
+        mapsUrl: 'https://www.google.com/maps?q=40.4168,-3.7038',
+      });
+      return '/workshop-sos';
+    },
+  },
+  {
+    label: 'Abrir la espera de la última solicitud',
+    description: 'Pantalla "despacho en curso" de la última orden creada',
+    run: async () => {
+      const latest = (await listOrders())[0];
+      return latest ? `/order-status?id=${latest.id}` : null;
+    },
+  },
+  {
+    label: 'Simular: un mecánico acepta la última solicitud',
+    description: 'Para ver cómo el cliente pasa de "despacho en curso" a "mecánico asignado"',
+    run: async () => {
+      const pending = (await listOrders()).find(o => o.status === 'pending');
+      if (pending) await acceptOrder(pending.id, { name: 'Luis Herrera', email: 'luis.mecanico@caradvisor.dev' });
+      return null;
+    },
+  },
+  {
+    label: 'Simular: un mecánico acepta el último SOS',
+    description: 'El aviso del cliente pasa a "mecánico en camino"',
+    run: async () => {
+      const open = (await listSosAlerts()).find(a => a.status === 'open');
+      if (open) await acceptSosAlert(open.id, { name: 'Luis Herrera', email: 'luis.mecanico@caradvisor.dev' });
+      return null;
+    },
+  },
+  {
+    label: 'Borrar órdenes y alertas',
+    description: 'Vacía las órdenes de servicio y las alertas SOS guardadas',
+    run: async () => {
+      await clearOrdersAndAlerts();
+      return '/workshop';
+    },
+  },
+  {
     label: 'Cerrar sesión',
     description: 'Borra el token y vuelve al login',
     run: async () => {
@@ -92,7 +174,7 @@ export const DevMenu: React.FC = () => {
   const runAction = async (action: (typeof DEV_ACTIONS)[number]) => {
     const target = await action.run();
     setVisible(false);
-    router.replace(target as '/');
+    if (target) router.replace(target as '/');
   };
 
   return (
